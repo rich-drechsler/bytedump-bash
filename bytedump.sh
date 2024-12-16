@@ -92,10 +92,10 @@
 # source code, along with some of the "rules" I tried to follow in this script:
 #
 #   Script Locales
-#       There's a small locale specific associative array that's defined in
-#       this section and used by the script to set locales. Right after that
-#       LC_ALL is set to the script's preferred locale (using the value that
-#       was just saved in that array).
+#       There's a small locale specific associative array that's defined and
+#       initialized in this section and is used by the script to set locales.
+#       Right after that LC_ALL is set to the script's preferred locale using
+#       one of the values stored in that array.
 #
 #   Script Variables
 #       Global script variables are all declared and initialized before any
@@ -137,6 +137,13 @@
 #           an underscore to all local variable names. If you want an example
 #           and more details, take a look at the ByteMapper function.
 #
+#       Functions occasionally accept options that are introduced by a single
+#       "-" or "+" character and they're always supposed to recognize "--" as
+#       an argument that marks the end of the function's options. A function's
+#       options aren't carefully checked and currently never trigger errors.
+#       Take a look at the definitions of Error, InternalError, or Message if
+#       you want examples of functions that implement their own options.
+#
 #       The function named Main, that's defined in this section, is eventually
 #       called to run this program. If you search for it by typing
 #
@@ -159,6 +166,14 @@
 #       Right now it just includes a few error handling functions, along with
 #       the global variables and the initialization code that those functions
 #       need.
+#
+#       The error handling code in this section is probably a good place to
+#       start if you decide to read any of the source code. It's pretty easy,
+#       not too long, and it's self-contained, so you should be able to copy
+#       it into your own bash script and test it there. It's what I started
+#       with because I wanted this script's error handling to be consistent,
+#       reasonably reliable, and be able to provide useful information to the
+#       user (or developer).
 #
 #   Script Start
 #       The script's Main function that runs the program is called from this
@@ -429,8 +444,8 @@
 # manual), was more than sufficient when I finally realized the script needed some
 # serious testing using an encoding that wasn't simply an 8-bit subset of Unicode.
 # It took a while, but I eventually addressed all the locale based problems that
-# surfaced and at that point I wanted to run some tests using locales that didn't
-# use UTF-8 to encode characters. The single byte encodings described in
+# surfaced and at that point I wanted to run tests in more locales that didn't use
+# UTF-8 to encode characters. The single byte encodings described in
 #
 #     https://en.wikipedia.org/wiki/ISO/IEC_8859-1
 #
@@ -440,8 +455,8 @@
 #
 # seemed like convenient choices. The 8859-1 encoding matches the first two blocks
 # of Unicode characters (i.e., Unicode's first 256 code points), while the 8859-15
-# encoding only replaces eight of those characters with different symbols. I never
-# had a reason to generate a new locale, but when I asked ChatGPT how to build the
+# encoding replaced eight of those characters with different symbols. I never had
+# a reason to generate a new locale, however when I asked ChatGPT how to build the
 # en_US.ISO-8859-1 and en_US.ISO-8859-15 locales on Linux Mint, it told me exactly
 # what to do. After that I used the two new locales to test my changes, and except
 # some terminal emulator issues, all of the behavior was what I expected.
@@ -487,17 +502,36 @@
 #
 # on your terminal. Forcing the C local means ASCII (7-bit) encoding and the first
 # and third Unicode escapes are asking for characters that can't be represented in
-# ASCII. Apparently, when there's a problem like this bash outputs an equivalent
+# ASCII. Apparently, when there's a problem like this, bash outputs an equivalent
 # Unicode escape sequence that uses four hex digits instead of the two digits that
 # we handed to bash.
 #
 # Anyway, that's the behavior that I eventually noticed when I forced the script to
-# run in the C locale, but not until I used debugging output to dump the TEXT field
-# mapping array using a command line something like
+# run in the C locale, but only after I used debugging options to look at the text
+# field mapping array that bash built. Run the script using the command lines
+#
+#     LC_ALL=C ./bytedump --text=unicode --debug=textmap,unexpanded /dev/null
+#
+# or
 #
 #     LC_ALL=C ./bytedump --text=caret --debug=textmap,unexpanded /dev/null
 #
-# TODO - this block of comments isn't quite finished - I'll finish it later...
+# and you should see a bunch of four digit hex escape codes that look out of place
+# in the text field mapping array, but drop "unexpanded" from the debug options
+#
+#     LC_ALL=C ./bytedump --text=unicode --debug=textmap /dev/null
+#
+# or
+#
+#     LC_ALL=C ./bytedump --text=caret --debug=textmap /dev/null
+#
+# and all of the unexpanded escape sequences are replaced by one (or two) question
+# marks. So that's the fix, and if you search for "DEBUG.unexpanded" by typing
+#
+#     /DEBUG.unexpanded
+#
+# in vim you'll eventually find the code that's responsible applying the fix to all
+# of the unexpanded escape sequences in the text mapping array.
 #
 
 ##############################
@@ -3918,7 +3952,7 @@ HelpScanner() {
 # call to handle it all. Despite how simple that sounds, doing it reliably in a
 # bash script is harder than you might expect. Pipes, subshells, and redirection
 # are just a few reasons why things can get tricky. Anyway, I'm not certain this
-# satisfies my goals, but at the very least it's a reasonable attempt.
+# satisfies all my goals, but at the very least it's a reasonable attempt.
 #
 # As far as I can tell, there really is no formal way to deal with errors that
 # crop up in a bash script. There are plenty of suggestions, like use "set -e",
@@ -4091,6 +4125,10 @@ Message() {
     # for error (or log messages), call this function they usually add the +frame
     # option to the arguments to try to make sure any call stack information added
     # to the final message is actually useful.
+    #
+    # NOTE - this function was designed to be the final step for things like error
+    # or log file messages, so many options (e.g., +frame, -date, -pid) don't make
+    # sense in all situations.
     #
     # NOTE - we intentionally don't support arbitrary date formats. Didn't want to
     # try to validate them, particularly when the caller can do the formatting and
@@ -4510,15 +4548,18 @@ exit 0                  # skip everything else in this file
 #@#         byte in the dump's text field. It must be one of the names in the list:
 #@#
 #@#               ascii - one character strings that only identify bytes that are
-#@#                       printable ASCII characters. All the other bytes, even the
-#@#                       ones that are classified as printable Unicode code points,
-#@#                       are represented by a period (i.e., ".").
+#@#                       printable ASCII characters. All other bytes, even the ones
+#@#                       that are classified as printable Unicode code points, are
+#@#                       represented by a period (i.e., ".").
 #@#
-#@#             unicode - one character strings that identify every byte that has a
-#@#                       printable Unicode code point. Bytes that are ASCII, but
-#@#                       not printable, are represented by a period (i.e., "."). The
-#@#                       remaining bytes are unprintable and not ASCII, and they're
-#@#                       represented by a colon (i.e., ":").
+#@#             unicode - one character strings that identify all bytes that represent
+#@#                       printable Unicode code points using the character assigned to
+#@#                       to that code point. The rest of the bytes are all represented
+#@#                       using a period (i.e., ".").
+#@#
+#@#                       Any byte representing a character that bash determines can't
+#@#                       be displayed in the user's locale is replaced by one question
+#@#                       mark (i.e., "?").
 #@#
 #@#               caret - two character strings that use a custom extension of caret
 #@#                       notation to uniquely represent every byte. Bytes that are
@@ -4545,11 +4586,19 @@ exit 0                  # skip everything else in this file
 #@#                       constraint, because the byte field is always available, but
 #@#                       it seems like reasonable goal.
 #@#
+#@#                       Any byte representing a character that bash determines can't
+#@#                       be displayed in the user's locale is replaced by two question
+#@#                       marks (i.e., "??").
+#@#
 #@#              escape - two character strings that use C-style escapes to represent
 #@#                       unprintable bytes with numeric values that are the same as
 #@#                       two character C-style backslash escape sequences. All other
 #@#                       bytes are represented by two character strings described in
 #@#                       the caret <style> section.
+#@#
+#@#                       Any byte representing a character that bash determines can't
+#@#                       be displayed in the user's locale is replaced by two question
+#@#                       marks (i.e., "??").
 #@#
 #@#                 xxd - duplicates the text field display style that the xxd command
 #@#                       produces. It's just a synonym for ascii and is only included
@@ -4557,6 +4606,8 @@ exit 0                  # skip everything else in this file
 #@#
 #@#               empty - text fields are all empty. The text and byte fields can't
 #@#                       both be empty.
+#@#
+#@#         The default <style> is ascii.
 #@#
 #@#         The optional <length> must be a nonnegative integer that's used to set the
 #@#         maximum length of each record in the dump. See the --length option for more
