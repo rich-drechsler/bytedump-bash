@@ -123,7 +123,7 @@
 #       in languages like Java and Python. There's no such thing in bash, so
 #       it's what I usually use for function names in shell scripts, mostly
 #       because it helps distinguish function calls from simple commands that
-#       execute builtins or files (e.g., printf, grep, sort).
+#       execute bash builtins or files (e.g., printf, grep, sort).
 #
 #       Function Variables
 #           All function variables are declared, one per line, using bash's
@@ -177,7 +177,9 @@
 #
 #   Script Start
 #       The script's Main function that runs the program is called from this
-#       section.
+#       section. There's also an explicit exit call in this section to make
+#       sure nothing else in the script is executed after Main returns. It's
+#       not required, but seemed reasonable.
 #
 #   Script Documentation
 #       This is where you'll find the documentation that's written to standard
@@ -191,7 +193,7 @@
 # expressions would also help, but free chatbots (e.g., ChatGPT, Copilot, Gemini)
 # do a decent (but not flawless) job explaining what happens when they're handed
 # bash code that uses a regular expression. There's plenty of bash documentation
-# on the web, but if you're an old-timer like me, then the man pages
+# on the web, but if you're an old-timer like me, the man pages
 #
 #         bash.1  long, dense, tedious reading, but almost everything is here
 #        regex.7  concise regular expression documentation, but it's a tough read
@@ -414,8 +416,7 @@
 # find useful. More details would help, there's a typo in the LC_TIME summary that
 # could easily be fixed, and the LC_CTYPE and LC_COLLATE summaries mention "pattern
 # matching" but don't say anything about bash regular expressions, which I suspect
-# is an omission (at least in official bash documentation) that probably should be
-# investigated and addressed.
+# is an omission, at least in official bash documentation.
 #
 # The sections of the glibc and bash manuals that I've already referenced helped
 # clear up some of my confusion about locales, but what I was really looking for
@@ -2509,12 +2510,17 @@ Help() {
     # Used to show some documentation to the user. Right now that documentation
     # comes from special comments (near the end of this script) that start with
     # the string ${SCRIPT_STRINGS[SCRIPT.help.trigger]} (probably "#@#"). Using
-    # comments has advantages, but it obviously assumes that the script's source
-    # file (i.e., ${BASH_SOURCE[0]}) can be located.
+    # comments has advantages, but it obviously assumes the script's source file,
+    # as stored in ${BASH_SOURCE[0]}, can be accessed from the script's current
+    # directory. Seems to be a reasonable assumption for this script, no matter
+    # how it was originally found (e.g., via PATH or by using a relative path).
+    # If not, it's something that should be pretty easy to address.
     #
     # NOTE - the HelpScanner function reads from standard input, so it doesn't
     # care where the documentation comes from. Storing it in a here document is
-    # a reasonable alternative that's often used in bash scripts.
+    # a very reasonable alternative that's often used in bash scripts. Regular
+    # bash strings, whether they're single or double quoted, have issues with
+    # individual characters that make them a less convenient alternative.
     #
 
     if [[ -f ${BASH_SOURCE[0]} ]] && [[ -r ${BASH_SOURCE[0]} ]]; then
@@ -3503,6 +3509,10 @@ Options() {
                     attribute=${BASH_REMATCH[1]}
                     selector=${BASH_REMATCH[4]}
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
+                        #
+                        # This option applies to the BYTE and TEXT fields, so two calls
+                        # are needed here.
+                        #
                         ByteSelector "BACKGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_BACKGROUND"
                         ByteSelector "BACKGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_TEXT_BACKGROUND"
                     else
@@ -3539,9 +3549,6 @@ Options() {
                     attribute=${BASH_REMATCH[1]}
                     selector=${BASH_REMATCH[4]}
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
-                        #
-                        # The "BYTE_" prefix restricts changes to the BYTE field.
-                        #
                         ByteSelector "BACKGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_BACKGROUND"
                     else
                         Error "background attribute ${attribute@Q} in option ${arg@Q} is not recognized"
@@ -3555,10 +3562,6 @@ Options() {
                     attribute=${BASH_REMATCH[1]}
                     selector=${BASH_REMATCH[4]}
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
-                        #
-                        # The "BYTE_" prefix that's added here restricts changes
-                        # to the BYTE field.
-                        #
                         ByteSelector "FOREGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_FOREGROUND"
                     else
                         Error "foreground attribute ${attribute@Q} in option ${arg@Q} is not recognized"
@@ -3639,6 +3642,10 @@ Options() {
                     attribute=${BASH_REMATCH[1]}
                     selector=${BASH_REMATCH[4]}
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
+                        #
+                        # This option applies to the BYTE and TEXT fields, so two calls
+                        # are needed here.
+                        #
                         ByteSelector "FOREGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_FOREGROUND"
                         ByteSelector "FOREGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_TEXT_FOREGROUND"
                     else
