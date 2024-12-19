@@ -4361,8 +4361,13 @@ exit 0                  # skip everything else in this file
 #@# OPTIONS
 #@# =======
 #@#
-#@# The command line options are processed left to right and options that are processed
-#@# later take precedence. The recognized options are:
+#@# Options are processed in the order they appear on the command line and options that
+#@# are processed later take precedence. Option processing continues until there are no
+#@# more arguments that start with a '-' character. The option '--', which is otherwise
+#@# ignored, can be used to mark the end of the options. The argument '-', which always
+#@# stands for standard input, also ends option processing.
+#@#
+#@# The documented options are:
 #@#
 #@#     --addr=<style>
 #@#     --addr=<style>:<width>
