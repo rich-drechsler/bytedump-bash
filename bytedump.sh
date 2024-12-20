@@ -466,12 +466,9 @@
 #
 # The last thing I'm going to do in this section is show you how you can duplicate
 # some of the behavior I noticed when I first started some serious locale testing.
-# I'm going to assume you have access to a Linux system that uses UTF-8 to encode
-# characters. To start with I'll show you a few simple examples (using echo) that
-# you can run to see some of the things that I noticed after I started to test the
-# script using different locales.
-#
-# Make sure you're running bash and using UTF-8 to encode characters. Then type
+# I'm going to assume you have access to a Linux system and are using an encoding,
+# like UTF-8 or ISO-8859-1, that can represent Unicode's first 256 code points. If
+# you're running bash and type
 #
 #     echo $'\uC4 \u42 \uC7'
 #
@@ -479,7 +476,7 @@
 #
 #     /bin/echo $'\uC4 \u42 \uC7'
 #
-# and you should see
+# you should see
 #
 #     Ä B Ç
 #
@@ -501,15 +498,21 @@
 #
 #     \u00C4 B \u00C7
 #
-# on your terminal. Forcing the C local means ASCII (7-bit) encoding and the first
-# and third Unicode escapes are asking for characters that can't be represented in
-# ASCII. Apparently, when there's a problem like this, bash outputs an equivalent
-# Unicode escape sequence that uses four hex digits instead of the two digits that
-# we handed to bash.
+# on your terminal. Forcing the C local on the instance of bash that you're talking
+# to with your keyboard tells it to use ASCII (7-bit) encoding, but the first and
+# third escape sequences in our example ask for characters that aren't defined in
+# ASCII. Apparently, whenever bash gets impossible requests like these, it outputs
+# equivalent Unicode escape sequences that always use four hex digits - a perfectly
+# reasonable fallback that gives us a chance to figure out which code points caused
+# problems.
 #
-# Anyway, that's the behavior that I eventually noticed when I forced the script to
-# run in the C locale, but only after I used debugging options to look at the text
-# field mapping array that bash built. Run the script using the command lines
+# Anyway, that's basically the behavior I noticed when I forced the script to run
+# in the C locale, but only after I used debugging options to dump the text field
+# mapping arrays that bash built. Understanding how to identify escape sequences
+# that bash couldn't expand made fixing them possible. That fix is already in, but
+# I wanted to make sure you could see the initial problem, exactly the way I did,
+# so I added a --debug option argument that disables the fix, which sounds like a
+# very strange thing to do. If you run this script using the command line
 #
 #     LC_ALL=C ./bytedump --text=unicode --debug=textmap,unexpanded /dev/null
 #
@@ -517,8 +520,8 @@
 #
 #     LC_ALL=C ./bytedump --text=caret --debug=textmap,unexpanded /dev/null
 #
-# and you should see a bunch of four digit hex escape codes that look out of place
-# in the text field mapping array, but drop "unexpanded" from the debug options
+# you should see a bunch of four digit hex escape codes that look out of place in
+# the text field mapping array, but drop the "unexpanded" argument and just run
 #
 #     LC_ALL=C ./bytedump --text=unicode --debug=textmap /dev/null
 #
@@ -526,13 +529,14 @@
 #
 #     LC_ALL=C ./bytedump --text=caret --debug=textmap /dev/null
 #
-# and all of the unexpanded escape sequences are replaced by one (or two) question
-# marks. So that's the fix, and if you search for "DEBUG.unexpanded" by typing
+# and all those unexpanded escape sequences are replaced by one (or two) question
+# marks. That's the fix, and if you search for "DEBUG.unexpanded" by typing
 #
 #     /DEBUG.unexpanded
 #
-# in vim you'll eventually find the code that's responsible applying the fix to all
-# of the unexpanded escape sequences in the text mapping array.
+# in vim you'll eventually find the code that's responsible for dealing with all of
+# the unexpanded escape sequences in the text mapping array. It's not trivial, but
+# there isn't too much, so if you're curious it's pretty to find.
 #
 
 ##############################
@@ -3230,12 +3234,19 @@ Initialize7_Maps() {
             #
 
             if [[ ${SCRIPT_STRINGS[DEBUG.unexpanded]} == "FALSE" ]]; then
+                #
+                # TODO - I actually suspect that at least part of this code may need
+                # to run in the user's locale. Should be investigated soon!! At the
+                # very least it needs a close look.
+                #
+
                 unexpanded=${SCRIPT_STRINGS[DUMP.unexpanded.char]:-"?"}
+
                 #
                 # Look for any unexpanded Unicode escape sequences in the mapping
                 # array.
                 #
-                if [[ "${field_map[*]}" =~ '\u'[[:xdigit:]]{2,4} ]]; then
+                if [[ "${field_map[*]}" =~ '\u'[[:xdigit:]]{4} ]]; then
                     #
                     # There's at least one, so check every element in the mapping array.
                     #
@@ -3245,12 +3256,13 @@ Initialize7_Maps() {
                         # end of each string in the TEXT field mapping array. Sufficient
                         # for our purposes, but it's not completely general.
                         #
-                        if [[ ${field_map[$index]} =~ ^(.*)('\u'[[:xdigit:]]{2,4})$ ]]; then
+                        if [[ ${field_map[$index]} =~ ^(.*)('\u'[[:xdigit:]]{4})$ ]]; then
                             #
                             # Found one, so replace it with a string that's filled with the
                             # right number of question marks. We build it using printf, a
                             # curious looking format string, and the seq command to create
                             # the required number of "dummy" arguments.
+                            #
 
                             #
                             # shellcheck disable=SC2046
