@@ -94,8 +94,8 @@
 #   Script Locales
 #       There's a small locale specific associative array that's defined and
 #       initialized in this section and is used by the script to set locales.
-#       Right after that LC_ALL is set to the script's preferred locale using
-#       one of the values stored in that array.
+#       After that, LC_ALL is set to the script's preferred locale using one
+#       of the values stored in that array.
 #
 #   Script Variables
 #       Global script variables are all declared and initialized before any
@@ -597,7 +597,7 @@ declare -Ar SCRIPT_LC_ALL=(
 # Then force the script's preferred locale.
 #
 
-LC_ALL=${SCRIPT_LC_ALL[INTERNAL]}
+LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
 
 ##############################
 #
@@ -813,7 +813,7 @@ declare -A SCRIPT_STRINGS=(
 # script to line the TEXT field up vertically in columns.
 #
 
-LC_ALL=${SCRIPT_LC_ALL[EXTERNAL]}
+LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
 
 #
 # The SCRIPT_ASCII_TEXT_MAP mapping array is designed to reproduce the ASCII text
@@ -1060,7 +1060,7 @@ declare -a SCRIPT_CARET_ESCAPE_TEXT_MAP=(
 # Back to the script's preferred locale.
 #
 
-LC_ALL=${SCRIPT_LC_ALL[INTERNAL]}
+LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
 
 #
 # If we need a mapping array to display the BYTE field the way the user requested
@@ -3235,20 +3235,23 @@ Initialize7_Maps() {
 
             if [[ ${SCRIPT_STRINGS[DEBUG.unexpanded]} == "FALSE" ]]; then
                 #
-                # TODO - I actually suspect that at least part of this code may need
-                # to run in the user's locale. Should be investigated soon!! At the
-                # very least it needs a close look.
+                # If we're going to look for sequences of characters that bash left in
+                # the TEXT field mapping array when it had trouble expanding a Unicode
+                # escape sequence, then we should do it in the user's locale. It's also
+                # needed because we want to count characters (not bytes) to figure out
+                # how many question marks to use when those mistakes are replaced.
                 #
 
-                unexpanded=${SCRIPT_STRINGS[DUMP.unexpanded.char]:-"?"}
+                LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
 
                 #
-                # Look for any unexpanded Unicode escape sequences in the mapping
-                # array.
+                # Look for an unexpanded Unicode escape sequence in the mapping array.
                 #
                 if [[ "${field_map[*]}" =~ '\u'[[:xdigit:]]{4} ]]; then
+                    unexpanded=${SCRIPT_STRINGS[DUMP.unexpanded.char]:-"?"}
+
                     #
-                    # There's at least one, so check every element in the mapping array.
+                    # There's at least one, so check every element.
                     #
                     for (( index = 0; index < 256; index++ )); do
                         #
@@ -3271,6 +3274,12 @@ Initialize7_Maps() {
                         fi
                     done
                 fi
+
+                #
+                # Back to the script's preferred locale.
+                #
+
+                LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
             fi
         else
             InternalError "${SCRIPT_STRINGS[TEXT.map]@Q} isn't the name of a TEXT field mapping array"
