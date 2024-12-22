@@ -185,8 +185,16 @@
 #       This is where you'll find the documentation that's written to standard
 #       output when the --help option is used on the command line. Consecutive
 #       lines of comments that start with "#@#" have that prefix removed before
-#       they're written to standard output. A line that doesn't start that way
-#       currently marks the end the documentation.
+#       they're written to standard output. The comments can be put anywhere in
+#       the script and once the first one is found any line that doesn't start
+#       with "#@#" currently ends the documentation.
+#
+#       There are easy alternatives, like storing the documentation in a here
+#       document. The functions named Help and HelpScanner manage the script's
+#       documentation. Help knows the big picture, but doesn't care about the
+#       low level details. All it has to do is call HelpScanner with standard
+#       input properly redirected and options that explain how to extract the
+#       documentation from standard input.
 #
 # If you're comfortable reading bash scripts and Linux man pages then I'm pretty
 # sure you'll be able to follow most of this script. Experience with bash regular
@@ -3945,8 +3953,8 @@ HelpScanner() {
     #
     if (( ${#help_content[@]} > 0 )); then
         #
-        # Avoiding printf's %b format means no accidental expansions in any of
-        # the output we generate.
+        # Avoiding printf's %b format should prevent accidental expansions in any
+        # of the output we generate.
         #
         printf "${help_content[0]:+\n}"
         printf "%s\n" "${help_content[@]}"
