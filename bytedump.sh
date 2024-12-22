@@ -459,8 +459,9 @@
 # encoding replaced eight of those characters with different symbols. I never had
 # a reason to generate a new locale, however when I asked ChatGPT how to build the
 # en_US.ISO-8859-1 and en_US.ISO-8859-15 locales on Linux Mint, it told me exactly
-# what to do. After that I used the two new locales to test my changes, and except
-# some terminal emulator issues, all of the behavior was what I expected.
+# what to do. After that I used those two new locales to test my "locale fix", and
+# as long as I updated my terminal emulator's character encoding, every test I ran
+# behaved the way I expected.
 #
 #                        ------------------------------
 #
@@ -507,7 +508,7 @@
 # problems.
 #
 # Anyway, that's basically the behavior I noticed when I forced the script to run
-# in the C locale, but only after I used debugging options to dump the text field
+# in the C locale, but only after I used debugging options to dump the TEXT field
 # mapping arrays that bash built. Understanding how to identify escape sequences
 # that bash couldn't expand made fixing them possible. That fix is already in, but
 # I wanted to make sure you could see the initial problem, exactly the way I did,
@@ -521,7 +522,7 @@
 #     LC_ALL=C ./bytedump --text=caret --debug=textmap,unexpanded /dev/null
 #
 # you should see a bunch of four digit hex escape codes that look out of place in
-# the text field mapping array, but drop the "unexpanded" argument and just run
+# the TEXT field mapping array, but drop the "unexpanded" argument and just run
 #
 #     LC_ALL=C ./bytedump --text=unicode --debug=textmap /dev/null
 #
@@ -530,13 +531,13 @@
 #     LC_ALL=C ./bytedump --text=caret --debug=textmap /dev/null
 #
 # and all those unexpanded escape sequences are replaced by one (or two) question
-# marks. That's the fix, and if you search for "DEBUG.unexpanded" by typing
+# marks. That's my "fix", and if you search for "DEBUG.unexpanded" by typing
 #
 #     /DEBUG.unexpanded
 #
 # in vim you'll eventually find the code that's responsible for dealing with all of
 # the unexpanded escape sequences in the text mapping array. It's not trivial, but
-# there isn't too much, so if you're curious it's pretty to find.
+# there isn't too much, so if you're curious it's pretty easy to find.
 #
 
 ##############################
@@ -806,11 +807,25 @@ declare -A SCRIPT_STRINGS=(
 # that are used to completely rebuild the TEXT field that xxd generated. They're
 # used in the ByteMapper function, but only if a mapping array is referenced by
 # the value assigned to SCRIPT_STRINGS[TEXT.map]. When a mapping array is named,
-# each byte in an xxd dump is converted to decimal and used as the index in the
-# named mapping array of the string that's supposed to represent the byte in the
-# rebuilt TEXT field. The character length of the strings in a text mapping array
-# must match (e.g., all 1 or 2 characters) because we need to make it easy for the
-# script to line the TEXT field up vertically in columns.
+# each byte in an xxd dump is converted to decimal and used as an index into the
+# named mapping array of the string that's supposed to represent that byte in the
+# rebuilt TEXT field.
+#
+# The initializers used in every TEXT field mapping array declaration make liberal
+# use of bash's $'\uHH' Unicode escape sequences. The arrays are used to generate
+# output for the user, so Unicode escape sequences in those initializers need to
+# be evaluated using the locale settings that were active when the script started.
+# That's what happens next when LC_ALL is explicitly forced. After all of the TEXT
+# field mapping arrays are created LC_ALL is set back to the value that the script
+# prefers.
+#
+# NOTE - unrelated benefits of using Unicode escape sequences are that hex numbers
+# in text mapping array initializers make them easy to build (with simple scripts)
+# and should also help you decide if those initializers are right or wrong.
+#
+# NOTE - the length (in characters) of every string that ends up in an initialized
+# TEXT field mapping array must match (e.g., all 1 or 2 characters) because it has
+# to be easy for the script to line the TEXT field up vertically in columns.
 #
 
 LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
@@ -821,20 +836,6 @@ LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
 # is required when ANSI escapes sequences are supposed to be applied to characters
 # in the TEXT field or the spacing between those characters has to be adjusted to
 # maintain vertical alignment in a "narrow" dump (see the --narrow option).
-#
-# NOTE - notice that initializers in all of the text mapping arrays make liberal
-# use of bash's $'\uHH' Unicode escape sequences. The arrays are used to generate
-# output for the user, so the non-ASCII characters in all those arrays need to be
-# encoded using the locale settings that were active when the script was started.
-# That's what currently happens because LC_ALL hasn't been changed yet. It's also
-# important to understand that it would have been a mistake if I had encoded those
-# non-ASCII characters (using keyboard escapes or whatever) while I worked on this
-# this script - Unicode escape sequences delay that encoding until bash takes over
-# and runs the script, and that's exactly what we want.
-#
-# NOTE - unrelated benefits of using Unicode escape sequences are that hex numbers
-# in text mapping array initializers make them easy to build (with simple scripts)
-# and probably will also help you decide if those initializers are right or wrong.
 #
 
 declare -a SCRIPT_ASCII_TEXT_MAP=(
