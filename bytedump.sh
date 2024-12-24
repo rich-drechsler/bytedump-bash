@@ -32,7 +32,7 @@
 # Linux systems, but it's basically just a big bash script that postprocesses xxd
 # output, so it's not a program anyone should depend on to dump the bytes in most
 # files. It's also over-commented, which is a legitimate complaint, particularly
-# for a bash script, but for this source code, a one-liner something like
+# about a bash script, but for this source code, a one-liner something like
 #
 #     sed -e '/^#$/d' -e '/^#[^!@].*/d' -e '/^  *#/d' bytedump.sh
 #
@@ -46,7 +46,7 @@
 # Even though there's plenty more that could be done, none of it belongs in this
 # bash script. Instead, what might be worthwhile is rewriting it in more capable
 # languages, like Python, Java, C, or Rust. Straightforward translations of this
-# script into other languages could be worthwhile, as would implementations that
+# script into other languages might be worthwhile, as would implementations that
 # make full use of a programming language's capabilities. Imagining new features,
 # like adding a state machine that colors the program's output based on sequences
 # of bytes found in the input file, isn't difficult, but I can't think of one new
@@ -1643,7 +1643,7 @@ ByteSelector() {
                             Error "problem extracting a hex integer from ${selector_input_start@Q}"
                         fi
                     elif [[ $selector_base == "8" ]]; then
-                        if [[ $selector_input =~ ^(([0-7]+)([-]([0-7]+))?)([[:blank:]]+|$) ]]; then
+                        if [[ $selector_input =~ ^(([01234567]+)([-]([01234567]+))?)([[:blank:]]+|$) ]]; then
                             selector_first=8#${BASH_REMATCH[2]}
                             selector_last=8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
                             selector_input=${selector_input:${#BASH_REMATCH[0]}}
@@ -1651,7 +1651,7 @@ ByteSelector() {
                             Error "problem extracting an octal integer from ${selector_input_start@Q}"
                         fi
                     elif [[ $selector_base == "10" ]]; then
-                        if [[ $selector_input =~ ^(([0-9]+)([-]([0-9]+))?)([[:blank:]]+|$) ]]; then
+                        if [[ $selector_input =~ ^(([0123456789]+)([-]([0123456789]+))?)([[:blank:]]+|$) ]]; then
                             selector_first=10#${BASH_REMATCH[2]}
                             selector_last=10#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
                             selector_input=${selector_input:${#BASH_REMATCH[0]}}
@@ -1671,11 +1671,11 @@ ByteSelector() {
                         selector_first=16#${BASH_REMATCH[2]}
                         selector_last=16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
                         selector_input=${selector_input:${#BASH_REMATCH[0]}}
-                    elif [[ $selector_input =~ ^((0[0-7]*)([-](0[0-7]*))?)([[:blank:]]+|$) ]]; then
+                    elif [[ $selector_input =~ ^((0[01234567]*)([-](0[01234567]*))?)([[:blank:]]+|$) ]]; then
                         selector_first=8#${BASH_REMATCH[2]}
                         selector_last=8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
                         selector_input=${selector_input:${#BASH_REMATCH[0]}}
-                    elif [[ $selector_input =~ ^(([1-9][0-9]*)([-]([1-9][0-9]*))?)([[:blank:]]+|$) ]]; then
+                    elif [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([[:blank:]]+|$) ]]; then
                         selector_first=10#${BASH_REMATCH[2]}
                         selector_last=10#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
                         selector_input=${selector_input:${#BASH_REMATCH[0]}}
@@ -1755,6 +1755,15 @@ ByteSelector() {
                 # I wanted to see if I could implement it in this bash script, ideally
                 # using a purely bash solution. Removing this code would not be a big
                 # deal.
+                #
+                # NOTE - if you're really going to try to follow this part, remember
+                # that at this point LC_ALL should be set to the script's preferred
+                # locale (i.e., C). That means the regular expression, string length,
+                # and substring operations used to extract the body of the raw string
+                # token all operate on individual bytes. After we have the bytes that
+                # make up the body of the raw string we to switch the user's locale,
+                # because that's how we translate those bytes into the characters the
+                # user intended.
                 #
 
                 selector_prefix=${BASH_REMATCH[1]}
@@ -3494,7 +3503,7 @@ Options() {
         fi
         case "$arg" in
             --addr=?*)
-                if [[ $optarg =~ ^(decimal|empty|hex|HEX|octal|xxd)(${regex_separator}([0]?[1-9][0-9]*))?$ ]]; then
+                if [[ $optarg =~ ^(decimal|empty|hex|HEX|octal|xxd)(${regex_separator}([0]?[123456789][0123456789]*))?$ ]]; then
                     style=${BASH_REMATCH[1]}
                     width=${BASH_REMATCH[3]}
                     case "$style" in
@@ -4217,9 +4226,6 @@ Message() {
             -frame)
                 frame=0;;
 
-            -frame=[0-9])
-                frame="${optarg}";;
-
             -info)
                 info="";;
 
@@ -4235,7 +4241,7 @@ Message() {
             -pid=?*)
                 pid="[${optarg}]";;
 
-            -pid-width=[0-7])           # Linux max fits in 7 decimal digits
+            -pid-width=[01234567])      # Linux max fits in 7 decimal digits
                 printf -v pid "[%*s]" "${optarg}" "$$";;
 
             -prefix)
