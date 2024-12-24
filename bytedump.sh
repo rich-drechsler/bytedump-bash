@@ -1534,8 +1534,8 @@ ByteSelector() {
     # the base used to evaluate all numbers in the selector. A base prefix that's
     # "0x" or "0X" means all numbers are hex, "0" means they're all octal, and no
     # base prefix (just the parens) means they're all decimal. Setting the default
-    # base this way makes it easy for the user to do exactly the same thing from
-    # the command line.
+    # base this way, instead of using an option, makes it easy for the user to do
+    # exactly the same thing from the command line.
     #
     # If a base is set, all characters in an integer token must be digits in that
     # base. Otherwise C-style syntax is used, so hex integers start with "0x" or
@@ -2216,6 +2216,11 @@ Dump() {
     # to plug in another dump generator (e.g., od or hexdump), this is one place
     # it probably could be done.
     #
+    # NOTE - the selection of the "handler" was originally done by modifying the
+    # the value stored in SCRIPT_STRINGS[DEBUG.dump]. That approach got a little
+    # more complicated after I decided the SCRIPT_STRINGS array would be readonly
+    # after all the initialization finished. No big deal either way.
+    #
 
     if [[ -n ${SCRIPT_STRINGS[DUMP.handler]} ]]; then
         handler=${SCRIPT_STRINGS[DUMP.handler]}
@@ -2652,7 +2657,7 @@ Initialize2_Fields() {
 
     case "${SCRIPT_STRINGS[ADDR.output]}" in
         DECIMAL)
-            SCRIPT_STRINGS[ADDR.format.width]=${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}
+            SCRIPT_STRINGS[ADDR.format.width]="${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}"
             SCRIPT_STRINGS[ADDR.format]="%${SCRIPT_STRINGS[ADDR.format.width]}d"
             SCRIPT_STRINGS[ADDR.digits]="${SCRIPT_STRINGS[ADDR.format.width]#0}";;
 
@@ -2664,23 +2669,23 @@ Initialize2_Fields() {
             SCRIPT_STRINGS[ADDR.digits]=0;;
 
         HEX-LOWER)
-            SCRIPT_STRINGS[ADDR.format.width]=${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}
+            SCRIPT_STRINGS[ADDR.format.width]="${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}"
             SCRIPT_STRINGS[ADDR.format]="%${SCRIPT_STRINGS[ADDR.format.width]}x"
             SCRIPT_STRINGS[ADDR.digits]="${SCRIPT_STRINGS[ADDR.format.width]#0}";;
 
         HEX-UPPER)
-            SCRIPT_STRINGS[ADDR.format.width]=${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}
+            SCRIPT_STRINGS[ADDR.format.width]="${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}"
             SCRIPT_STRINGS[ADDR.format]="%${SCRIPT_STRINGS[ADDR.format.width]}X"
             SCRIPT_STRINGS[ADDR.digits]="${SCRIPT_STRINGS[ADDR.format.width]#0}";;
 
         OCTAL)
-            SCRIPT_STRINGS[ADDR.format.width]=${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}
+            SCRIPT_STRINGS[ADDR.format.width]="${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}"
             SCRIPT_STRINGS[ADDR.format]="%${SCRIPT_STRINGS[ADDR.format.width]}o"
             SCRIPT_STRINGS[ADDR.digits]="${SCRIPT_STRINGS[ADDR.format.width]#0}";;
 
         XXD)
             SCRIPT_STRINGS[ADDR.output]="HEX-LOWER"
-            SCRIPT_STRINGS[ADDR.format.width]=${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width-xxd]}}
+            SCRIPT_STRINGS[ADDR.format.width]="${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width-xxd]}}"
             SCRIPT_STRINGS[ADDR.format]="%${SCRIPT_STRINGS[ADDR.format.width]}x"
             SCRIPT_STRINGS[ADDR.digits]="${SCRIPT_STRINGS[ADDR.format.width]#0}";;
 
@@ -2699,9 +2704,9 @@ Initialize2_Fields() {
         fi
     fi
 
-    SCRIPT_STRINGS[ADDR.prefix.size]=${#SCRIPT_STRINGS[ADDR.prefix]}
-    SCRIPT_STRINGS[ADDR.suffix.size]=${#SCRIPT_STRINGS[ADDR.suffix]}
-    SCRIPT_STRINGS[ADDR.field.separator.size]=${#SCRIPT_STRINGS[ADDR.field.separator]}
+    SCRIPT_STRINGS[ADDR.prefix.size]="${#SCRIPT_STRINGS[ADDR.prefix]}"
+    SCRIPT_STRINGS[ADDR.suffix.size]="${#SCRIPT_STRINGS[ADDR.suffix]}"
+    SCRIPT_STRINGS[ADDR.field.separator.size]="${#SCRIPT_STRINGS[ADDR.field.separator]}"
 
     #
     # TEXT field initializations. Fields that aren't explicitly used by other
@@ -2726,7 +2731,7 @@ Initialize2_Fields() {
             SCRIPT_STRINGS[TEXT.chars.per.octet]=0
             SCRIPT_STRINGS[BYTE.field.separator]=""
             SCRIPT_STRINGS[BYTE.field.separator-xxd]=""
-            SCRIPT_STRINGS[DUMP.layout]=${SCRIPT_STRINGS[DUMP.layout-xxd]};;
+            SCRIPT_STRINGS[DUMP.layout]="${SCRIPT_STRINGS[DUMP.layout-xxd]}";;
 
         UNICODE)
             SCRIPT_STRINGS[TEXT.map]="SCRIPT_UNICODE_TEXT_MAP"
@@ -2740,9 +2745,9 @@ Initialize2_Fields() {
          *) InternalError "text output ${SCRIPT_STRINGS[TEXT.output]@Q} has not been implemented";;
     esac
 
-    SCRIPT_STRINGS[TEXT.prefix.size]=${#SCRIPT_STRINGS[TEXT.prefix]}
-    SCRIPT_STRINGS[TEXT.separator.size]=${#SCRIPT_STRINGS[TEXT.separator]}
-    SCRIPT_STRINGS[TEXT.suffix.size]=${#SCRIPT_STRINGS[TEXT.suffix]}
+    SCRIPT_STRINGS[TEXT.prefix.size]="${#SCRIPT_STRINGS[TEXT.prefix]}"
+    SCRIPT_STRINGS[TEXT.separator.size]="${#SCRIPT_STRINGS[TEXT.separator]}"
+    SCRIPT_STRINGS[TEXT.suffix.size]="${#SCRIPT_STRINGS[TEXT.suffix]}"
 
     #
     # Checking done next assumes that referenced TEXT field mapping arrays aren't
@@ -2783,7 +2788,7 @@ Initialize2_Fields() {
                 SCRIPT_STRINGS[BYTE.map]=""
                 SCRIPT_STRINGS[BYTE.digits.per.octet]=0
                 SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]=2
-                SCRIPT_STRINGS[DUMP.layout]=${SCRIPT_STRINGS[DUMP.layout-xxd]}
+                SCRIPT_STRINGS[DUMP.layout]="${SCRIPT_STRINGS[DUMP.layout-xxd]}"
             else
                 Error "byte and text fields can't both be empty"
             fi;;
@@ -2848,19 +2853,19 @@ Initialize2_Fields() {
         fi
     fi
 
-    SCRIPT_STRINGS[BYTE.prefix.size]=${#SCRIPT_STRINGS[BYTE.prefix]}
-    SCRIPT_STRINGS[BYTE.separator.size]=${#SCRIPT_STRINGS[BYTE.separator]}
-    SCRIPT_STRINGS[BYTE.suffix.size]=${#SCRIPT_STRINGS[BYTE.suffix]}
-    SCRIPT_STRINGS[BYTE.field.separator.size]=${#SCRIPT_STRINGS[BYTE.field.separator]}
+    SCRIPT_STRINGS[BYTE.prefix.size]="${#SCRIPT_STRINGS[BYTE.prefix]}"
+    SCRIPT_STRINGS[BYTE.separator.size]="${#SCRIPT_STRINGS[BYTE.separator]}"
+    SCRIPT_STRINGS[BYTE.suffix.size]="${#SCRIPT_STRINGS[BYTE.suffix]}"
+    SCRIPT_STRINGS[BYTE.field.separator.size]="${#SCRIPT_STRINGS[BYTE.field.separator]}"
 
     if [[ -z ${SCRIPT_STRINGS[BYTE.separator]} ]]; then
         SCRIPT_STRINGS[BYTE.grouping.xxd]=0
         SCRIPT_STRINGS[BYTE.separator-xxd]=""
-        SCRIPT_STRINGS[BYTE.separator.size.xxd]=${#SCRIPT_STRINGS[BYTE.separator-xxd]}
+        SCRIPT_STRINGS[BYTE.separator.size.xxd]="${#SCRIPT_STRINGS[BYTE.separator-xxd]}"
     else
         SCRIPT_STRINGS[BYTE.grouping.xxd]=1
         SCRIPT_STRINGS[BYTE.separator-xxd]=" "
-        SCRIPT_STRINGS[BYTE.separator.size.xxd]=${#SCRIPT_STRINGS[BYTE.separator-xxd]}
+        SCRIPT_STRINGS[BYTE.separator.size.xxd]="${#SCRIPT_STRINGS[BYTE.separator-xxd]}"
     fi
 }
 
@@ -2879,7 +2884,7 @@ Initialize3_FieldWidths() {
     #
 
     if (( ${SCRIPT_STRINGS[DUMP.record.length]} > 0 )); then
-        SCRIPT_STRINGS[DUMP.record.length-xxd]=${SCRIPT_STRINGS[DUMP.record.length]}
+        SCRIPT_STRINGS[DUMP.record.length-xxd]="${SCRIPT_STRINGS[DUMP.record.length]}"
         if [[ ${SCRIPT_STRINGS[BYTE.output]} == "EMPTY" || ${SCRIPT_STRINGS[TEXT.output]} == "EMPTY" || ${SCRIPT_STRINGS[DUMP.layout]} == "NARROW" ]]; then
             #
             # Each collection of bytes that make up a BYTE field should be the
@@ -2911,7 +2916,7 @@ Initialize3_FieldWidths() {
         # its outer loop. Not timed, but it seems like a reasonable guess about
         # the best way to run this script.
         #
-        SCRIPT_STRINGS[DUMP.record.length-xxd]=${SCRIPT_STRINGS[DUMP.record.length.limit.xxd]}
+        SCRIPT_STRINGS[DUMP.record.length-xxd]="${SCRIPT_STRINGS[DUMP.record.length.limit.xxd]}"
         SCRIPT_STRINGS[BYTE.field.width]=0
     fi
 
@@ -2958,7 +2963,7 @@ Initialize4_Layout() {
         #
 
         SCRIPT_STRINGS[BYTE.field.separator]=$'\n'
-        SCRIPT_STRINGS[BYTE.field.separator.size]=${#SCRIPT_STRINGS[BYTE.field.separator]}
+        SCRIPT_STRINGS[BYTE.field.separator.size]="${#SCRIPT_STRINGS[BYTE.field.separator]}"
 
         #
         # Figure out the number of spaces that need to be appended to the TEXT or
@@ -2983,7 +2988,7 @@ Initialize4_Layout() {
         padding=$((${SCRIPT_STRINGS[BYTE.digits.per.octet]} - ${SCRIPT_STRINGS[TEXT.chars.per.octet]} + ${SCRIPT_STRINGS[BYTE.separator.size]} - ${SCRIPT_STRINGS[TEXT.separator.size]}))
         if (( padding > 0 )); then
             SCRIPT_STRINGS[TEXT.separator]+=$(printf "%*s" "$padding" "")
-            SCRIPT_STRINGS[TEXT.separator.size]=${#SCRIPT_STRINGS[TEXT.separator]}
+            SCRIPT_STRINGS[TEXT.separator.size]="${#SCRIPT_STRINGS[TEXT.separator]}"
             if [[ ${SCRIPT_STRINGS[TEXT.output]} == "ASCII" ]] && [[ -z ${SCRIPT_STRINGS[TEXT.map]} ]]; then
                 #
                 # Separation changed and we're doing ASCII output, so make sure
@@ -2993,7 +2998,7 @@ Initialize4_Layout() {
             fi
         elif (( padding < 0 )); then
             SCRIPT_STRINGS[BYTE.separator]+=$(printf "%*s" "$((-padding))" "")
-            SCRIPT_STRINGS[BYTE.separator.size]=${#SCRIPT_STRINGS[BYTE.separator]}
+            SCRIPT_STRINGS[BYTE.separator.size]="${#SCRIPT_STRINGS[BYTE.separator]}"
         fi
 
         #
@@ -3730,8 +3735,8 @@ Options() {
 
             --start=?*)
                 if [[ $optarg =~ ^(${regex_number})(${regex_separator}(${regex_number}))?$ ]]; then
-                    SCRIPT_STRINGS[DUMP.input.start]=$((BASH_REMATCH[1]))
-                    SCRIPT_STRINGS[DUMP.output.start]=$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))
+                    SCRIPT_STRINGS[DUMP.input.start]="$((BASH_REMATCH[1]))"
+                    SCRIPT_STRINGS[DUMP.output.start]="$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))"
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
@@ -3805,7 +3810,7 @@ Options() {
                 fi;;
 
             --wide)
-                SCRIPT_STRINGS[DUMP.layout]=${SCRIPT_STRINGS[DUMP.layout-xxd]};;
+                SCRIPT_STRINGS[DUMP.layout]="${SCRIPT_STRINGS[DUMP.layout-xxd]}";;
 
             #
             # Remaining patterns are pretty standard.
@@ -4312,9 +4317,9 @@ Message() {
             # caller builtin (using a regular expression) to grab each "field".
             #
 
-            caller[LINE]=${BASH_LINENO[$frame]}
-            caller[FUNCTION]=${FUNCNAME[$((frame + 1))]}
-            caller[SOURCE]=${BASH_SOURCE[$((frame + 1))]}
+            caller[LINE]="${BASH_LINENO[$frame]}"
+            caller[FUNCTION]="${FUNCNAME[$((frame + 1))]}"
+            caller[SOURCE]="${BASH_SOURCE[$((frame + 1))]}"
 
             for token in ${info//,/ }; do
                 case "${token^^}" in
