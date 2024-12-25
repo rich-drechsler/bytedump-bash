@@ -678,11 +678,11 @@ declare -A SCRIPT_STRINGS=(
 
     [DUMP.field.names]="ADDR BYTE TEXT"
     [DUMP.handler]=""
-    [DUMP.input.count]="0"
-    [DUMP.input.start]="0"
+    [DUMP.input.count]=0
+    [DUMP.input.start]=0
     [DUMP.layout]="WIDE"
     [DUMP.layout-xxd]="WIDE"
-    [DUMP.output.start]="0"
+    [DUMP.output.start]=0
     [DUMP.record.length]=16
     [DUMP.record.length-xxd]=""
     [DUMP.record.length.limit]=256
@@ -1428,6 +1428,13 @@ ByteMapper() {
     # single nameref variable in this script is always initialized using a string
     # that's completely controlled by the script (and not the user).
     #
+    # NOTE - mapper_index needs to be an integer, because we want bash to handle
+    # the conversion of hex or binary representations of bytes to decimal numbers
+    # that can be used as indices into the mapping array. Base conversion syntax
+    # is described in bash documentation (i.e., the man page or reference manual)
+    # in the section devoted to arithmetic. Translating the binary representation
+    # of bytes in xxd output probably means there isn't an easy alternative.
+    #
 
     mapper_status=1
 
@@ -1449,7 +1456,7 @@ ByteMapper() {
                     # Unrolled first loop interation because it's the only one
                     # that doesn't use $mapper_separator.
                     #
-                    mapper_index=2#${BASH_REMATCH[1]}
+                    mapper_index=2#${BASH_REMATCH[1]}           # bash base conversion
                     mapper_output="${mapper_map[$mapper_index]}"
                     mapper_bytes=${mapper_bytes:${#BASH_REMATCH[0]}}
                     while [[ $mapper_bytes =~ ^([01]{8})[[:blank:]]* ]]; do
@@ -1465,7 +1472,7 @@ ByteMapper() {
                     # Unrolled first loop interation because it's the only one
                     # that doesn't use $mapper_separator.
                     #
-                    mapper_index=16#${BASH_REMATCH[1]}
+                    mapper_index=16#${BASH_REMATCH[1]}          # bash base conversion
                     mapper_output="${mapper_map[$mapper_index]}"
                     mapper_bytes=${mapper_bytes:${#BASH_REMATCH[0]}}
                     while [[ $mapper_bytes =~ ^([[:xdigit:]]{2})[[:blank:]]* ]]; do
@@ -1496,7 +1503,7 @@ ByteSelector() {
     local selector_class
     local -i selector_first
     local selector_hashes
-    local -i selector_index
+    local selector_index
     local selector_input
     local selector_input_start
     local -i selector_last
@@ -1581,6 +1588,12 @@ ByteSelector() {
     # selected bytes are the Unicode code points of the characters in the string
     # that are less than 256.
     #
+    # NOTE - selector_first and selector_last need to be integers, because we use
+    # bash's base conversion syntax to convert hex and octal numbers to decimal.
+    # However, unlike ByteMapper, this function isn't used much and doesn't have
+    # to deal with binary numbers, so there would be a pretty easy alternative to
+    # integer variables.
+    #
 
     selector_status=0
     selector_base=""
@@ -1651,9 +1664,9 @@ ByteSelector() {
                             Error "problem extracting an octal integer from ${selector_input_start@Q}"
                         fi
                     elif [[ $selector_base == "10" ]]; then
-                        if [[ $selector_input =~ ^(([0123456789]+)([-]([0123456789]+))?)([[:blank:]]+|$) ]]; then
-                            selector_first=10#${BASH_REMATCH[2]}
-                            selector_last=10#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
+                        if [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([[:blank:]]+|$) ]]; then
+                            selector_first=${BASH_REMATCH[2]}
+                            selector_last=${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
                             selector_input=${selector_input:${#BASH_REMATCH[0]}}
                         else
                             Error "problem extracting a decimal integer from ${selector_input_start@Q}"
@@ -1676,8 +1689,8 @@ ByteSelector() {
                         selector_last=8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
                         selector_input=${selector_input:${#BASH_REMATCH[0]}}
                     elif [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([[:blank:]]+|$) ]]; then
-                        selector_first=10#${BASH_REMATCH[2]}
-                        selector_last=10#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
+                        selector_first=${BASH_REMATCH[2]}
+                        selector_last=${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
                         selector_input=${selector_input:${#BASH_REMATCH[0]}}
                     else
                         Error "problem extracting an integer from ${selector_input_start@Q}"
@@ -2262,9 +2275,10 @@ Dump() {
 DumpXXD() {
     #
     # Runs the xxd command using options that were stored in SCRIPT_XXD_OPTIONS by
-    # by Initialize5_XXD. Output goes to standard output, so it can be used on its
-    # own as the dump generator or the preprocessor in DumpXXDInternal, which is
-    # the internal dump function that should to be able to generate all dumps.
+    # by Initialize5_XXD. Output goes to standard output, so this function can be
+    # used on its own as the dump generator or the preprocessor in DumpXXDInternal,
+    # which is the internal dump function that's slow, but is supposed to be able
+    # to generate all possible dumps.
     #
 
     Debug xxd "${1:--}"
@@ -2651,8 +2665,15 @@ Initialize1_Begin() {
 
 Initialize2_Fields() {
     #
-    # ADDR field initializations. Fields that aren't explicitly used by other
-    # functions are included for clarity or future enchancements.
+    # The main job in this function is to check the output style that's currently
+    # stored in SCRIPT_STRINGS for the ADDR, BYTE, and TEXT fields and use them to
+    # initialize other fields that depend on the selected style. Nothing done here
+    # involves difficult calculations and at this point if you knew how the fields
+    # were used, primarily in DumpXXDInternal, most of this would be pretty easy.
+    #
+    # ADDR field initializations are first. It's easy to miss, but notice that the
+    # value assigned to the ADDR.format key usually looks like it's a printf format
+    # string - the EMPTY style is the one exception.
     #
 
     case "${SCRIPT_STRINGS[ADDR.output]}" in
@@ -2709,8 +2730,8 @@ Initialize2_Fields() {
     SCRIPT_STRINGS[ADDR.field.separator.size]="${#SCRIPT_STRINGS[ADDR.field.separator]}"
 
     #
-    # TEXT field initializations. Fields that aren't explicitly used by other
-    # functions are included for clarity or future enchancements.
+    # TEXT field initializations. Main job is to pick a TEXT field mapping array,
+    # if it's needed.
     #
 
     case "${SCRIPT_STRINGS[TEXT.output]}" in
@@ -2765,8 +2786,9 @@ Initialize2_Fields() {
     fi
 
     #
-    # BYTE field initializations. Fields that aren't explicitly used by other
-    # functions are included for clarity or future enchancements.
+    # BYTE field initializations. Main jobs are to select the output style that
+    # want from xxd (i.e., BINARY, HEX-LOWER, or HEX-UPPER) and decide if we'll
+    # need a BYTE field mapping array.
     #
 
     case "${SCRIPT_STRINGS[BYTE.output]}" in
@@ -3735,8 +3757,8 @@ Options() {
 
             --start=?*)
                 if [[ $optarg =~ ^(${regex_number})(${regex_separator}(${regex_number}))?$ ]]; then
-                    SCRIPT_STRINGS[DUMP.input.start]="$((BASH_REMATCH[1]))"
-                    SCRIPT_STRINGS[DUMP.output.start]="$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))"
+                    SCRIPT_STRINGS[DUMP.input.start]=$((BASH_REMATCH[1]))
+                    SCRIPT_STRINGS[DUMP.output.start]=$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
