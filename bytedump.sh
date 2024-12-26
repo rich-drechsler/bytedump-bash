@@ -473,8 +473,13 @@
 #
 #                        ------------------------------
 #
-# The last thing I'm going to do in this section is show you how you can duplicate
-# some of the behavior I noticed when I first started some serious locale testing.
+# What I hope to do in this section is show you how you can duplicate the behavior
+# that I noticed when I first started some serious locale testing. I'll begin with
+# a few examples using echo, mostly to show you the behavior and convince you it's
+# not specific to this script. After that I'll give you a few command lines to use
+# if you want reproduce the issues in this script and see the changes that I added
+# to address them.
+#
 # I'm going to assume you have access to a Linux system and are using an encoding,
 # like UTF-8 or ISO-8859-1, that can represent Unicode's first 256 code points. If
 # you're running bash and type
@@ -503,13 +508,13 @@
 #     LC_ALL=C
 #     echo $'\uC4 \u42 \uC7'
 #
-# and bash ends up printing
+# and echo ends up printing
 #
 #     \u00C4 B \u00C7
 #
 # on your terminal. Forcing the C local on the instance of bash that you're talking
 # to with your keyboard tells it to use ASCII (7-bit) encoding, but the first and
-# third escape sequences in our example ask for characters that aren't defined in
+# third escape sequences in the example ask for characters that aren't defined in
 # ASCII. Apparently, whenever bash gets impossible requests like these, it outputs
 # equivalent Unicode escape sequences that always use four hex digits - a perfectly
 # reasonable fallback that gives us a chance to figure out which code points caused
@@ -518,9 +523,9 @@
 # Anyway, that's basically the behavior I noticed when I forced the script to run
 # in the C locale, but only after I used debugging options to dump the TEXT field
 # mapping arrays that bash built. Understanding how to identify escape sequences
-# that bash couldn't expand made fixing them possible. That fix is already in, but
-# I wanted to make sure you could see the initial problem, exactly the way I did,
-# so I added a --debug option argument that disables the fix, which sounds like a
+# that bash couldn't expand made "fixing" them possible. That "fix" is already in,
+# but I wanted to make sure anyone could see the initial problem, exactly the way
+# I did, so I added a --debug option that disables the "fix", which sounds like a
 # very strange thing to do. If you run this script using the command line
 #
 #     LC_ALL=C ./bytedump --text=unicode --debug=textmap,unexpanded /dev/null
@@ -539,13 +544,13 @@
 #     LC_ALL=C ./bytedump --text=caret --debug=textmap /dev/null
 #
 # and all those unexpanded escape sequences are replaced by one (or two) question
-# marks. That's my "fix", and if you search for "DEBUG.unexpanded" by typing
+# marks. That's the "fix", and if you search for "DEBUG.unexpanded" by typing
 #
 #     /DEBUG.unexpanded
 #
 # in vim you'll eventually find the code that's responsible for dealing with all of
 # the unexpanded escape sequences in the text mapping array. It's not trivial, but
-# there isn't too much, so if you're curious it's pretty easy to find.
+# if you're curious, it's easy to find and only about 10 lines of code.
 #
 
 ##############################
@@ -3916,7 +3921,7 @@ HelpScanner() {
 
     while (( $# > 0 )); do
         arg=""
-        if [[ $1 =~ ^[-+][^=]+[=]([[:print:]]+)$ ]]; then
+        if [[ $1 =~ ^[-+][^=]+[=](.+)$ ]]; then
             arg=${BASH_REMATCH[1]}
         fi
         case "$1" in
@@ -4810,14 +4815,14 @@ exit 0                  # skip everything else in this file
 #@# =========
 #@#
 #@# Even though the program's debugging support is officially undocumented, there are
-#@# a few debug options that users might occasionally be interested in. The four that
+#@# a few debug options that users might occasionally be interested in. The three that
 #@# stand out can be added individually
 #@#
-#@#     bytedump --debug=xxd --debug=foreground --debug=background --debug=attributes ...
+#@#     bytedump --debug=xxd --debug=bytemap --debug=textmap ...
 #@#
 #@# or in a comma separated list
 #@#
-#@#     bytedump --debug=xxd,foreground,background,attributes ...
+#@#     bytedump --debug=xxd,bytemap,textmap ...
 #@#
 #@# to any of the example command lines in the next section. Debugging output goes to
 #@# standard error, so it can easily be separated from the generated dump. Organization
