@@ -708,15 +708,15 @@ declare -A SCRIPT_STRINGS=(
 
     [DUMP.field.names]="ADDR BYTE TEXT"
     [DUMP.handler]=""
-    [DUMP.input.count]=0
-    [DUMP.input.start]=0
+    [DUMP.input.count]="0"
+    [DUMP.input.start]="0"
     [DUMP.layout]="WIDE"
     [DUMP.layout-xxd]="WIDE"
-    [DUMP.output.start]=0
-    [DUMP.record.length]=16
+    [DUMP.output.start]="0"
+    [DUMP.record.length]="16"
     [DUMP.record.length-xxd]=""
-    [DUMP.record.length.limit]=256
-    [DUMP.record.length.limit.xxd]=256
+    [DUMP.record.length.limit]="256"
+    [DUMP.record.length.limit.xxd]="256"
     [DUMP.record.separator]=$'\n'
     [DUMP.record.separator-xxd]=$'\n'
     [DUMP.unexpanded.char]="?"
@@ -745,8 +745,8 @@ declare -A SCRIPT_STRINGS=(
     [ADDR.format-xxd]="%08x"            # must "agree" with ADDR.format.width-xxd
     [ADDR.format.width]=""
     [ADDR.format.width-xxd]="08"        # must "agree" with ADDR.format-xxd
-    [ADDR.format.width.default]=6       # change this to get a different default
-    [ADDR.format.width.limit]=0         # 0 means no limit
+    [ADDR.format.width.default]="6"     # change this to get a different default
+    [ADDR.format.width.limit]="0"       # 0 means no limit
     [ADDR.prefix]=""
     [ADDR.prefix-xxd]=""
     [ADDR.prefix.size]=""
@@ -830,14 +830,12 @@ declare -A SCRIPT_STRINGS=(
     [DEBUG.xxd]="FALSE"
 
     #
-    # The value assigned to DEBUG.strings.regexes are the space separated regular
-    # expressions that control the order that keys appear in the debugging output
-    # generated when the --debug=strings option is used. By default, all key/value
-    # pairs in this array are included in the output, but the regular expressions
-    # can always be changed to pick the key/value pairs you're interested in.
+    # The value assigned to DEBUG.strings.regexes are the space separated prefixes
+    # of the keys that are dumped when the --debug=strings option is used. You can
+    # change this to select the key/value pairs you're interested in.
     #
 
-    [DEBUG.strings.regexes]="DUMP[.] ADDR[.] BYTE[.] TEXT[.] DEBUG[.] INFO[.] SCRIPT[.] .*"
+    [DEBUG.strings.prefixes]="DUMP ADDR BYTE TEXT DEBUG INFO SCRIPT"
 )
 
 #
@@ -1331,7 +1329,7 @@ declare -a SCRIPT_XXD_OPTIONS=()
 # is not one of them - running the Options function in a subshell doesn't work.
 #
 
-declare SCRIPT_ARGUMENTS_CONSUMED=0
+declare SCRIPT_ARGUMENTS_CONSUMED="0"
 
 ##############################
 #
@@ -1474,8 +1472,8 @@ ByteMapper() {
     mapper_output_name=$4
     mapper_separator=$5                         # optional separator
 
-    mapper_map=$mapper_map_name                 # create the map nameref
-    mapper_output=$mapper_output_name           # create the output nameref
+    mapper_map="$mapper_map_name"               # create the map nameref
+    mapper_output="$mapper_output_name"         # create the output nameref
 
     if [[ -n $mapper_bytes && -n $mapper_base ]]; then
         mapper_output=""
@@ -1486,13 +1484,13 @@ ByteMapper() {
                     # Unrolled first loop interation because it's the only one
                     # that doesn't use $mapper_separator.
                     #
-                    mapper_index=2#${BASH_REMATCH[1]}           # bash base conversion
+                    mapper_index="2#${BASH_REMATCH[1]}"         # bash base conversion
                     mapper_output="${mapper_map[$mapper_index]}"
-                    mapper_bytes=${mapper_bytes:${#BASH_REMATCH[0]}}
+                    mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
                     while [[ $mapper_bytes =~ ^([01]{8})[[:blank:]]* ]]; do
-                        mapper_index=2#${BASH_REMATCH[1]}
+                        mapper_index="2#${BASH_REMATCH[1]}"
                         mapper_output+="${mapper_separator}${mapper_map[$mapper_index]}"
-                        mapper_bytes=${mapper_bytes:${#BASH_REMATCH[0]}}
+                        mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
                     done
                 fi;;
 
@@ -1502,13 +1500,13 @@ ByteMapper() {
                     # Unrolled first loop interation because it's the only one
                     # that doesn't use $mapper_separator.
                     #
-                    mapper_index=16#${BASH_REMATCH[1]}          # bash base conversion
+                    mapper_index="16#${BASH_REMATCH[1]}"        # bash base conversion
                     mapper_output="${mapper_map[$mapper_index]}"
-                    mapper_bytes=${mapper_bytes:${#BASH_REMATCH[0]}}
+                    mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
                     while [[ $mapper_bytes =~ ^([[:xdigit:]]{2})[[:blank:]]* ]]; do
-                        mapper_index=16#${BASH_REMATCH[1]}
+                        mapper_index="16#${BASH_REMATCH[1]}"
                         mapper_output+="${mapper_separator}${mapper_map[$mapper_index]}"
-                        mapper_bytes=${mapper_bytes:${#BASH_REMATCH[0]}}
+                        mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
                     done
                 fi;;
 
@@ -1521,7 +1519,7 @@ ByteMapper() {
         fi
     fi
 
-    return $mapper_status
+    return "$mapper_status"
 }
 
 ByteSelector() {
@@ -1650,7 +1648,7 @@ ByteSelector() {
     fi
 
     if [[ $selector_output_name =~ ^SCRIPT_ATTRIBUTES_(BYTE|TEXT)_(BACKGROUND|FOREGROUND)$ ]]; then
-        selector_output=$selector_output_name       # create the output nameref
+        selector_output="$selector_output_name"     # create the output nameref
 
         while [[ $selector_input =~ ^[[:blank:]]*([^[:blank:]].*) ]]; do
             #
@@ -1659,8 +1657,8 @@ ByteSelector() {
             # current input, because selector_input might be modified when we want to
             # use it in an error message.
             #
-            selector_input=${BASH_REMATCH[1]}
-            selector_input_start=$selector_input        # for error messages
+            selector_input="${BASH_REMATCH[1]}"
+            selector_input_start="$selector_input"      # for error messages
 
             #
             # Implemented tokens can be identified by looking at how they start. It's
@@ -1679,25 +1677,25 @@ ByteSelector() {
                     #
                     if [[ $selector_base == "16" ]]; then
                         if [[ $selector_input =~ ^(([[:xdigit:]]+)([-]([[:xdigit:]]+))?)([[:blank:]]+|$) ]]; then
-                            selector_first=16#${BASH_REMATCH[2]}
-                            selector_last=16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
-                            selector_input=${selector_input:${#BASH_REMATCH[0]}}
+                            selector_first="16#${BASH_REMATCH[2]}"
+                            selector_last="16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
+                            selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                         else
                             Error "problem extracting a hex integer from ${selector_input_start@Q}"
                         fi
                     elif [[ $selector_base == "8" ]]; then
                         if [[ $selector_input =~ ^(([01234567]+)([-]([01234567]+))?)([[:blank:]]+|$) ]]; then
-                            selector_first=8#${BASH_REMATCH[2]}
-                            selector_last=8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
-                            selector_input=${selector_input:${#BASH_REMATCH[0]}}
+                            selector_first="8#${BASH_REMATCH[2]}"
+                            selector_last="8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
+                            selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                         else
                             Error "problem extracting an octal integer from ${selector_input_start@Q}"
                         fi
                     elif [[ $selector_base == "10" ]]; then
                         if [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([[:blank:]]+|$) ]]; then
-                            selector_first=${BASH_REMATCH[2]}
-                            selector_last=${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
-                            selector_input=${selector_input:${#BASH_REMATCH[0]}}
+                            selector_first="${BASH_REMATCH[2]}"
+                            selector_last="${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
+                            selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                         else
                             Error "problem extracting a decimal integer from ${selector_input_start@Q}"
                         fi
@@ -1711,17 +1709,17 @@ ByteSelector() {
                     # integer range must be expressed in the same base.
                     #
                     if [[ $selector_input =~ ^(0[xX]([[:xdigit:]]+)([-]0[xX]([[:xdigit:]]+))?)([[:blank:]]+|$) ]]; then
-                        selector_first=16#${BASH_REMATCH[2]}
-                        selector_last=16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
-                        selector_input=${selector_input:${#BASH_REMATCH[0]}}
+                        selector_first="16#${BASH_REMATCH[2]}"
+                        selector_last="16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
+                        selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                     elif [[ $selector_input =~ ^((0[01234567]*)([-](0[01234567]*))?)([[:blank:]]+|$) ]]; then
-                        selector_first=8#${BASH_REMATCH[2]}
-                        selector_last=8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
-                        selector_input=${selector_input:${#BASH_REMATCH[0]}}
+                        selector_first="8#${BASH_REMATCH[2]}"
+                        selector_last="8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
+                        selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                     elif [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([[:blank:]]+|$) ]]; then
-                        selector_first=${BASH_REMATCH[2]}
-                        selector_last=${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}
-                        selector_input=${selector_input:${#BASH_REMATCH[0]}}
+                        selector_first="${BASH_REMATCH[2]}"
+                        selector_last="${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
+                        selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                     else
                         Error "problem extracting an integer from ${selector_input_start@Q}"
                     fi
@@ -1743,8 +1741,8 @@ ByteSelector() {
                 # twice.
                 #
                 if [[ $selector_input =~ ^"[:"([[:alnum:]]+)":]"([[:blank:]]+|$) ]]; then
-                    selector_class=${BASH_REMATCH[1]}
-                    selector_input=${selector_input:${#BASH_REMATCH[0]}}
+                    selector_class="${BASH_REMATCH[1]}"
+                    selector_input="${selector_input:${#BASH_REMATCH[0]}}"
 
                     #
                     # The case statement recognizes the 12 character class names defined in
@@ -1809,7 +1807,7 @@ ByteSelector() {
                 # user intended.
                 #
 
-                selector_prefix=${BASH_REMATCH[1]}
+                selector_prefix="${BASH_REMATCH[1]}"
                 selector_suffix="${BASH_REMATCH[3]}${BASH_REMATCH[2]}"
 
                 #
@@ -1828,7 +1826,7 @@ ByteSelector() {
                 # easy grab everything that we need.
                 #
 
-                selector_input=${selector_input:${#selector_prefix}}
+                selector_input="${selector_input:${#selector_prefix}}"
 
                 if [[ $selector_input =~ "${selector_suffix}"(.*) ]]; then
                     #
@@ -1836,15 +1834,15 @@ ByteSelector() {
                     # be the input string that's processed by the next interation through
                     # the outer loop.
                     #
-                    selector_tail=${BASH_REMATCH[1]}
+                    selector_tail="${BASH_REMATCH[1]}"
                     if [[ $selector_tail =~ ^([[:blank:]]|$) ]]; then
                         #
                         # Grab the body of the raw string (everything between the prefix
                         # and suffix), then update selector_input for the next loop.
                         #
 
-                        selector_body=${selector_input:0:${#selector_input} - (${#selector_suffix} + ${#selector_tail})}
-                        selector_input=$selector_tail
+                        selector_body="${selector_input:0:${#selector_input} - (${#selector_suffix} + ${#selector_tail})}"
+                        selector_input="$selector_tail"
 
                         #
                         # Need to convert characters in $selector_body to character codes
@@ -1934,7 +1932,7 @@ ByteSelector() {
         InternalError "${selector_output_name@Q} is not recognized as an attribute array name"
     fi
 
-    return $selector_status
+    return "$selector_status"
 }
 
 Debug() {
@@ -2016,7 +2014,6 @@ DebugHandler() {
     local name
     local prefix
     local quote
-    local regex
     local row
     local tag
 
@@ -2079,7 +2076,7 @@ DebugHandler() {
                 # displayed in the BYTE field.
                 #
                 if [[ -n ${SCRIPT_STRINGS[BYTE.map]} ]]; then
-                    map=${SCRIPT_STRINGS[BYTE.map]}
+                    map="${SCRIPT_STRINGS[BYTE.map]}"
                     printf "[Debug] %s[%d]:\n" "${SCRIPT_STRINGS[BYTE.map]}" "${#map[@]}"
                     for (( row = 0; row < 16; row++ )); do
                         prefix="[Debug]    "
@@ -2126,8 +2123,8 @@ DebugHandler() {
                 #     Debug strings
                 #
                 # to the code whenever you want to see what's in SCRIPT_STRINGS.
-                # You can restrict the debugging output by changing the regular
-                # expressions stored in SCRIPT_STRINGS[DEBUG.strings.regexes].
+                # You can adjust the fields that are displayed in this the dump
+                # by changing SCRIPT_STRINGS[DEBUG.strings.prefixes].
                 #
                 # NOTE - SCRIPT_STRINGS is a big associative array, so using
                 #
@@ -2140,34 +2137,27 @@ DebugHandler() {
                 initial_keys="${SCRIPT_STRINGS[INFO.initial.keys]}"
 
                 printf "[Debug] SCRIPT_STRINGS[%d]:\n" "${#SCRIPT_STRINGS[@]}"
-                for regex in ${SCRIPT_STRINGS[DEBUG.strings.regexes]:-".*"}; do
-                    #
-                    # First make sure $regex is a valid regular expression.
-                    #
-                    if [[ "" =~ ${regex} ]] || (( $? != 2 )); then
-                        matched_keys=()
-                        for key in "${!SCRIPT_STRINGS[@]}"; do
-                            if [[ $key =~ ^${regex} ]] && [[ -z ${consumed_keys[$key]} ]]; then
-                                matched_keys+=("$key")
-                                consumed_keys[$key]="TRUE"
-                            fi
-                        done
-                        if (( ${#matched_keys[@]} > 0 )); then
-                            for key in $(printf "%s\n" "${matched_keys[@]}" | LC_ALL=C command -p sort --field-separator='.' --key=1 --key=2 --key=3); do
-                                #
-                                # shellcheck disable=SC2076
-                                #
-                                if [[ $initial_keys =~ "${key} " ]]; then
-                                    tag="  "
-                                else
-                                    tag="->"            # marks a possible mistake
-                                fi
-                                printf "[Debug] %s %s=%s\n" "$tag" "$key" "${SCRIPT_STRINGS[$key]@Q}"
-                            done
-                            printf "[Debug]\n"
+                for prefix in ${SCRIPT_STRINGS[DEBUG.strings.prefixes]}; do
+                    matched_keys=()
+                    for key in "${!SCRIPT_STRINGS[@]}"; do
+                        if [[ $key =~ ^"${prefix}" ]] && [[ -z ${consumed_keys[$key]} ]]; then
+                            matched_keys+=("$key")
+                            consumed_keys[$key]="TRUE"
                         fi
-                    else
-                        InternalError "malformed regular expression ${regex@Q} in SCRIPT_STRINGS[DEBUG.strings.regexes]"
+                    done
+                    if (( ${#matched_keys[@]} > 0 )); then
+                        for key in $(printf "%s\n" "${matched_keys[@]}" | LC_ALL=C command -p sort --field-separator='.' --key=1 --key=2 --key=3); do
+                            #
+                            # shellcheck disable=SC2076
+                            #
+                            if [[ $initial_keys =~ "${key} " ]]; then
+                                tag="  "
+                            else
+                                tag="->"            # marks a possible mistake
+                            fi
+                            printf "[Debug] %s %s=%s\n" "$tag" "$key" "${SCRIPT_STRINGS[$key]@Q}"
+                        done
+                        printf "[Debug]\n"
                     fi
                 done
                 printf "\n"
@@ -2181,7 +2171,7 @@ DebugHandler() {
                 # displayed in the TEXT field.
                 #
                 if [[ -n ${SCRIPT_STRINGS[TEXT.map]} ]]; then
-                    map=${SCRIPT_STRINGS[TEXT.map]}
+                    map="${SCRIPT_STRINGS[TEXT.map]}"
                     printf "[Debug] %s[%d]:\n" "${SCRIPT_STRINGS[TEXT.map]}" "${#map[@]}"
                     for (( row = 0; row < 16; row++ )); do
                         prefix="[Debug]    "
@@ -2209,7 +2199,7 @@ DebugHandler() {
                 # option, rather than this code, to debug the textmap array.
                 #
                 if [[ -n ${SCRIPT_STRINGS[TEXT.map]} ]]; then
-                    map=${SCRIPT_STRINGS[TEXT.map]}
+                    map="${SCRIPT_STRINGS[TEXT.map]}"
                     printf "declare -a %s=(\n" "${SCRIPT_STRINGS[TEXT.map]}"
                     for (( row = 0; row < 16; row++ )); do
                         prefix="    "
@@ -2266,7 +2256,7 @@ Dump() {
     #
 
     if [[ -n ${SCRIPT_STRINGS[DUMP.handler]} ]]; then
-        handler=${SCRIPT_STRINGS[DUMP.handler]}
+        handler="${SCRIPT_STRINGS[DUMP.handler]}"
 
         if [[ -n ${SCRIPT_STRINGS[DEBUG.dump]} ]]; then
             #
@@ -2360,36 +2350,36 @@ DumpXXDInternal() {
     # processes one xxd output line at a time until there are no more lines.
     #
 
-    dump_record_length=${SCRIPT_STRINGS[DUMP.record.length]}
-    dump_record_separator=${SCRIPT_STRINGS[DUMP.record.separator]}
+    dump_record_length="${SCRIPT_STRINGS[DUMP.record.length]}"
+    dump_record_separator="${SCRIPT_STRINGS[DUMP.record.separator]}"
 
-    addr_field_separator=${SCRIPT_STRINGS[ADDR.field.separator]}
-    addr_format=${SCRIPT_STRINGS[ADDR.format]}
-    addr_prefix=${SCRIPT_STRINGS[ADDR.prefix]}
-    addr_suffix=${SCRIPT_STRINGS[ADDR.suffix]}
+    addr_field_separator="${SCRIPT_STRINGS[ADDR.field.separator]}"
+    addr_format="${SCRIPT_STRINGS[ADDR.format]}"
+    addr_prefix="${SCRIPT_STRINGS[ADDR.prefix]}"
+    addr_suffix="${SCRIPT_STRINGS[ADDR.suffix]}"
 
-    byte_output=${SCRIPT_STRINGS[BYTE.output]}
-    byte_output_xxd=${SCRIPT_STRINGS[BYTE.output-xxd]}
-    byte_digits_per_octet=${SCRIPT_STRINGS[BYTE.digits.per.octet]}
-    byte_digits_per_octet_xxd=${SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]}
-    byte_field_separator=${SCRIPT_STRINGS[BYTE.field.separator]}
-    byte_field_width=${SCRIPT_STRINGS[BYTE.field.width]}
-    byte_field_width_xxd=${SCRIPT_STRINGS[BYTE.field.width.xxd]}
-    byte_indent=${SCRIPT_STRINGS[BYTE.indent]}
-    byte_map=${SCRIPT_STRINGS[BYTE.map]}
-    byte_prefix=${SCRIPT_STRINGS[BYTE.prefix]}
-    byte_separator=${SCRIPT_STRINGS[BYTE.separator]}
-    byte_separator_xxd=${SCRIPT_STRINGS[BYTE.separator-xxd]}
-    byte_separator_size=${SCRIPT_STRINGS[BYTE.separator.size]}
-    byte_separator_size_xxd=${SCRIPT_STRINGS[BYTE.separator.size.xxd]}
-    byte_suffix=${SCRIPT_STRINGS[BYTE.suffix]}
+    byte_output="${SCRIPT_STRINGS[BYTE.output]}"
+    byte_output_xxd="${SCRIPT_STRINGS[BYTE.output-xxd]}"
+    byte_digits_per_octet="${SCRIPT_STRINGS[BYTE.digits.per.octet]}"
+    byte_digits_per_octet_xxd="${SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]}"
+    byte_field_separator="${SCRIPT_STRINGS[BYTE.field.separator]}"
+    byte_field_width="${SCRIPT_STRINGS[BYTE.field.width]}"
+    byte_field_width_xxd="${SCRIPT_STRINGS[BYTE.field.width.xxd]}"
+    byte_indent="${SCRIPT_STRINGS[BYTE.indent]}"
+    byte_map="${SCRIPT_STRINGS[BYTE.map]}"
+    byte_prefix="${SCRIPT_STRINGS[BYTE.prefix]}"
+    byte_separator="${SCRIPT_STRINGS[BYTE.separator]}"
+    byte_separator_xxd="${SCRIPT_STRINGS[BYTE.separator-xxd]}"
+    byte_separator_size="${SCRIPT_STRINGS[BYTE.separator.size]}"
+    byte_separator_size_xxd="${SCRIPT_STRINGS[BYTE.separator.size.xxd]}"
+    byte_suffix="${SCRIPT_STRINGS[BYTE.suffix]}"
 
-    text_output=${SCRIPT_STRINGS[TEXT.output]}
-    text_indent=${SCRIPT_STRINGS[TEXT.indent]}
-    text_map=${SCRIPT_STRINGS[TEXT.map]}
-    text_prefix=${SCRIPT_STRINGS[TEXT.prefix]}
-    text_separator=${SCRIPT_STRINGS[TEXT.separator]}
-    text_suffix=${SCRIPT_STRINGS[TEXT.suffix]}
+    text_output="${SCRIPT_STRINGS[TEXT.output]}"
+    text_indent="${SCRIPT_STRINGS[TEXT.indent]}"
+    text_map="${SCRIPT_STRINGS[TEXT.map]}"
+    text_prefix="${SCRIPT_STRINGS[TEXT.prefix]}"
+    text_separator="${SCRIPT_STRINGS[TEXT.separator]}"
+    text_suffix="${SCRIPT_STRINGS[TEXT.suffix]}"
 
     byte_padding=""
     opened=""
@@ -2412,9 +2402,9 @@ DumpXXDInternal() {
             # expression and then thoroughly testing the changes.
             #
             if [[ $line =~ ^(([[:xdigit:]]+):' ')?([[:xdigit:]]{$byte_digits_per_octet_xxd}(${byte_separator_xxd}[[:xdigit:]]{$byte_digits_per_octet_xxd})*)('  '(.*))?$ ]]; then
-                addr=${BASH_REMATCH[2]}
-                byte=${BASH_REMATCH[3]}
-                text=${BASH_REMATCH[6]}
+                addr="${BASH_REMATCH[2]}"
+                byte="${BASH_REMATCH[3]}"
+                text="${BASH_REMATCH[6]}"
 
                 if (( byte_field_width > 0 )) && (( ${#byte} < byte_field_width_xxd)); then
                     #
@@ -2470,7 +2460,7 @@ DumpXXDInternal() {
                 if [[ -n $text_map ]]; then
                     ByteMapper "$byte" "$byte_output_xxd" "$text_map" "text" "$text_separator"
                 elif [[ $text_output == "ASCII" ]]; then
-                    text=${text:byte_field_width_xxd - ${#byte}}
+                    text="${text:byte_field_width_xxd - ${#byte}}"
                 elif [[ $text_output == "EMPTY" ]]; then
                     text=""
                 fi
@@ -2491,7 +2481,7 @@ DumpXXDInternal() {
                 elif [[ $byte_output == "EMPTY" ]]; then
                     byte=""
                 elif [[ $byte_separator_xxd != "$byte_separator" ]]; then
-                    byte=${byte//${byte_separator_xxd}/${byte_separator}}
+                    byte="${byte//${byte_separator_xxd}/${byte_separator}}"
                 fi
 
                 #
@@ -2536,14 +2526,14 @@ DumpXXDInternal() {
                             "${byte_indent}${byte_prefix}${byte}"
                         text_buffered+="${text_buffered:+${text_separator}}${text}"
                         byte_indent=""
-                        byte_prefix=$byte_separator
+                        byte_prefix="$byte_separator"
                     elif [[ $text_output != "EMPTY" ]]; then
                         opened="TEXT"
                         printf "${addr:+%s}%s" \
                             ${addr:+"${addr_prefix}${addr}${addr_suffix}${addr_field_separator}"} \
                             "${text_indent}${text_prefix}${text}"
                         text_indent=""
-                        text_prefix=$text_separator
+                        text_prefix="$text_separator"
                     else
                         #
                         # Initialize is supposed to guarantee we never get here.
@@ -2667,7 +2657,7 @@ Initialize1_Begin() {
         for layer in "BACKGROUND" "FOREGROUND"; do
             typeset -n attribute_array="SCRIPT_ATTRIBUTES_${field}_${layer}"
             for index in "${!attribute_array[@]}"; do
-                attribute=${attribute_array[$index]}
+                attribute="${attribute_array[$index]}"
                 if [[ -n $attribute ]]; then
                     if [[ -n ${SCRIPT_ANSI_ESCAPE[${attribute}]} ]]; then
                         #
@@ -3094,8 +3084,8 @@ Initialize5_XXD() {
 
     SCRIPT_XXD_OPTIONS=()
 
-    SCRIPT_XXD_OPTIONS+=(-c "${SCRIPT_STRINGS[DUMP.record.length-xxd]}")
-    SCRIPT_XXD_OPTIONS+=(-g "${SCRIPT_STRINGS[BYTE.grouping.xxd]}")
+    SCRIPT_XXD_OPTIONS+=("-c" "${SCRIPT_STRINGS[DUMP.record.length-xxd]}")
+    SCRIPT_XXD_OPTIONS+=("-g" "${SCRIPT_STRINGS[BYTE.grouping.xxd]}")
 
     if (( ${SCRIPT_STRINGS[DUMP.input.count]} > 0 )); then
         SCRIPT_XXD_OPTIONS+=("-l" "${SCRIPT_STRINGS[DUMP.input.count]}")
@@ -3172,7 +3162,7 @@ Initialize6_Handler() {
             #
             # The associated key is the one we get by removing the "-xxd" suffix.
             #
-            key=${BASH_REMATCH[1]}
+            key="${BASH_REMATCH[1]}"
             checked+="${checked:+ }${key_xxd}"
             if [[ -v SCRIPT_STRINGS[${key}] ]]; then
                 #
@@ -3223,7 +3213,7 @@ Initialize7_Maps() {
             # allowed name, and that probably won't ever change.
             #
 
-            typeset -n field_map=${SCRIPT_STRINGS[BYTE.map]}
+            typeset -n field_map="${SCRIPT_STRINGS[BYTE.map]}"
 
             #
             # There's an explicit assumption made about the order of the elements
@@ -3270,7 +3260,7 @@ Initialize7_Maps() {
             #
             # shellcheck disable=SC2178
             #
-            typeset -n field_map=${SCRIPT_STRINGS[TEXT.map]}
+            typeset -n field_map="${SCRIPT_STRINGS[TEXT.map]}"
 
             #
             # As discussed in the "Locales And Encoding" block of comments, Unicode
@@ -3323,7 +3313,7 @@ Initialize7_Maps() {
                 # Look for an unexpanded Unicode escape sequence in the mapping array.
                 #
                 if [[ "${field_map[*]}" =~ '\u'[[:xdigit:]]{4} ]]; then
-                    unexpanded=${SCRIPT_STRINGS[DUMP.unexpanded.char]:-"?"}
+                    unexpanded="${SCRIPT_STRINGS[DUMP.unexpanded.char]:-"?"}"
 
                     #
                     # There's at least one, so check every element.
@@ -3392,7 +3382,7 @@ Initialize8_Attributes() {
     #
 
     if (( ${#SCRIPT_ATTRIBUTES[@]} > 0 )); then
-        escape_suffix=${SCRIPT_ANSI_ESCAPE[RESET.attributes]}
+        escape_suffix="${SCRIPT_ANSI_ESCAPE[RESET.attributes]}"
         #
         # Loop through the indices currently defined in SCRIPT_ATTRIBUTES. Using
         # the --debug=attributes command line option will show you what's stored
@@ -3408,7 +3398,7 @@ Initialize8_Attributes() {
                         # field name specific prefix that Initialize1_Begin added.
                         #
                         if [[ $attribute =~ ^(${field_name}_)((BACKGROUND|FOREGROUND)[.][[:alnum:]-]+)$ ]]; then
-                            attribute_name=${BASH_REMATCH[2]}
+                            attribute_name="${BASH_REMATCH[2]}"
                             escape_prefix=""
                             if [[ -n ${SCRIPT_ANSI_ESCAPE[$attribute_name]} ]]; then
                                 escape_prefix="${SCRIPT_ANSI_ESCAPE[$attribute_name]}"
@@ -3416,7 +3406,7 @@ Initialize8_Attributes() {
                                     #
                                     # shellcheck disable=SC2178
                                     #
-                                    typeset -n field_map=${SCRIPT_STRINGS[${field_name}.map]}
+                                    typeset -n field_map="${SCRIPT_STRINGS[${field_name}.map]}"
 
                                     field_map[$index]="${escape_prefix}${field_map[$index]}${escape_suffix}"
                                 fi
@@ -3554,15 +3544,15 @@ Options() {
     while (( $# > 0 )); do
         arg=$1
         if [[ $arg =~ ^--([^=]+)[=](.+)$ ]]; then
-            optarg=${BASH_REMATCH[2]}
+            optarg="${BASH_REMATCH[2]}"
         else
             optarg=""
         fi
         case "$arg" in
             --addr=?*)
                 if [[ $optarg =~ ^(decimal|empty|hex|HEX|octal|xxd)(${regex_separator}([0]?[123456789][0123456789]*))?$ ]]; then
-                    style=${BASH_REMATCH[1]}
-                    width=${BASH_REMATCH[3]}
+                    style="${BASH_REMATCH[1]}"
+                    width="${BASH_REMATCH[3]}"
                     case "$style" in
                         decimal) SCRIPT_STRINGS[ADDR.output]="DECIMAL";;
                           empty) SCRIPT_STRINGS[ADDR.output]="EMPTY";;
@@ -3602,8 +3592,8 @@ Options() {
 
             --background=?*)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
-                    attribute=${BASH_REMATCH[1]}
-                    selector=${BASH_REMATCH[4]}
+                    attribute="${BASH_REMATCH[1]}"
+                    selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
                         #
                         # This option applies to the BYTE and TEXT fields, so two calls
@@ -3620,8 +3610,8 @@ Options() {
 
             --byte=?*)
                 if [[ $optarg =~ ^(binary|decimal|empty|hex|HEX|octal|xxd)(${regex_separator}(${regex_number}))?$ ]]; then
-                    style=${BASH_REMATCH[1]}
-                    length=${BASH_REMATCH[3]}
+                    style="${BASH_REMATCH[1]}"
+                    length="${BASH_REMATCH[3]}"
                     case "$style" in
                          binary) SCRIPT_STRINGS[BYTE.output]="BINARY";;
                         decimal) SCRIPT_STRINGS[BYTE.output]="DECIMAL";;
@@ -3642,8 +3632,8 @@ Options() {
 
             --byte-background=?*)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
-                    attribute=${BASH_REMATCH[1]}
-                    selector=${BASH_REMATCH[4]}
+                    attribute="${BASH_REMATCH[1]}"
+                    selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
                         ByteSelector "BACKGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_BACKGROUND"
                     else
@@ -3655,8 +3645,8 @@ Options() {
 
             --byte-foreground=?*)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
-                    attribute=${BASH_REMATCH[1]}
-                    selector=${BASH_REMATCH[4]}
+                    attribute="${BASH_REMATCH[1]}"
+                    selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
                         ByteSelector "FOREGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_FOREGROUND"
                     else
@@ -3735,8 +3725,8 @@ Options() {
 
             --foreground=?*)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
-                    attribute=${BASH_REMATCH[1]}
-                    selector=${BASH_REMATCH[4]}
+                    attribute="${BASH_REMATCH[1]}"
+                    selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
                         #
                         # This option applies to the BYTE and TEXT fields, so two calls
@@ -3787,16 +3777,16 @@ Options() {
 
             --start=?*)
                 if [[ $optarg =~ ^(${regex_number})(${regex_separator}(${regex_number}))?$ ]]; then
-                    SCRIPT_STRINGS[DUMP.input.start]=$((BASH_REMATCH[1]))
-                    SCRIPT_STRINGS[DUMP.output.start]=$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))
+                    SCRIPT_STRINGS[DUMP.input.start]="$((BASH_REMATCH[1]))"
+                    SCRIPT_STRINGS[DUMP.output.start]="$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))"
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
             --text=?*)
                 if [[ $optarg =~ ^(ascii|caret|empty|escape|unicode|xxd)(${regex_separator}(${regex_number}))?$ ]]; then
-                    style=${BASH_REMATCH[1]}
-                    length=${BASH_REMATCH[3]}
+                    style="${BASH_REMATCH[1]}"
+                    length="${BASH_REMATCH[3]}"
                     case "$style" in
                           ascii) SCRIPT_STRINGS[TEXT.output]="ASCII";;
                           caret) SCRIPT_STRINGS[TEXT.output]="CARET";;
@@ -3816,8 +3806,8 @@ Options() {
 
             --text-background=?*)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
-                    attribute=${BASH_REMATCH[1]}
-                    selector=${BASH_REMATCH[4]}
+                    attribute="${BASH_REMATCH[1]}"
+                    selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
                         #
                         # The "TEXT_" prefix that's added here restricts changes
@@ -3833,8 +3823,8 @@ Options() {
 
             --text-foreground=?*)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
-                    attribute=${BASH_REMATCH[1]}
-                    selector=${BASH_REMATCH[4]}
+                    attribute="${BASH_REMATCH[1]}"
+                    selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
                         #
                         # The "TEXT_" prefix restricts changes to the TEXT field.
@@ -3947,7 +3937,7 @@ HelpScanner() {
     while (( $# > 0 )); do
         arg=""
         if [[ $1 =~ ^[-+][^=]+[=](.+)$ ]]; then
-            arg=${BASH_REMATCH[1]}
+            arg="${BASH_REMATCH[1]}"
         fi
         case "$1" in
             +connected)
@@ -3972,7 +3962,7 @@ HelpScanner() {
                 help_trigger="#@#";;
 
             -trigger=*)
-                help_trigger=$arg;;
+                help_trigger="$arg";;
 
             --) shift; break;;
             +*) ;;                      # silently ignored
@@ -3985,11 +3975,11 @@ HelpScanner() {
     while IFS="" read -r line; do
         if [[ $line =~ ^"${help_trigger}"(.*)$ ]]; then
             if [[ -n $help_trigger ]]; then
-                help_arg=${BASH_REMATCH[1]:0:1}             # currently unused
-                help_text=${BASH_REMATCH[1]:1}
+                help_arg="${BASH_REMATCH[1]:0:1}"           # currently unused
+                help_text="${BASH_REMATCH[1]:1}"
             else
                 help_arg=""                                 # currently unused
-                help_text=${BASH_REMATCH[1]}
+                help_text="${BASH_REMATCH[1]}"
             fi
             if (( ${#help_content[@]} > 0 )) || [[ -n $help_text ]]; then
                 help_content+=("$help_text")
@@ -3999,12 +3989,12 @@ HelpScanner() {
             # Can't get here if help_trigger is empty.
             #
             if [[ $line =~ ^[#]+[[:blank:]]+("Copyright "(.+))$ ]]; then
-                value=${BASH_REMATCH[1]}
+                value="${BASH_REMATCH[1]}"
                 if [[ -n ${help_footnote[Copyright]} ]]; then
                     help_footnote[Copyright]="${value}"
                 fi
             elif [[ $line =~ ^[#]+[[:blank:]]+("License: "(.+))$ ]]; then
-                value=${BASH_REMATCH[1]}
+                value="${BASH_REMATCH[1]}"
                 if [[ -n ${help_footnote[License]} ]]; then
                     help_footnote[License]="${value}"
                 fi
@@ -4072,8 +4062,8 @@ HelpScanner() {
 declare -A MESSAGE_STRINGS=(
     [STDOUT.file]="/dev/stdout"
     [STDERR.file]="/dev/stderr"
-    [STDOUT.descriptor]=1
-    [STDERR.descriptor]=2
+    [STDOUT.descriptor]="1"
+    [STDERR.descriptor]="2"
 
     #
     # Default state settings.
@@ -4243,9 +4233,9 @@ Message() {
     format="%b\n"
     frame=0
     info=""
-    output=${MESSAGE_STRINGS[STATE.output]}
+    output="${MESSAGE_STRINGS[STATE.output]}"
     pid=""
-    prefix=${MESSAGE_STRINGS[STATE.prefix]}
+    prefix="${MESSAGE_STRINGS[STATE.prefix]}"
     quiet="FALSE"
     suffix=""
     tag=""
