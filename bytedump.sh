@@ -313,8 +313,8 @@
 # for me to realize the script needed some serious testing in a locale that didn't
 # encode characters using UTF-8. After that, it was easy to trigger behavior that
 # looked suspicious. Unfortunately, I spent much more time than I'm going to admit
-# trying to understand what was happening, but along the way I learned a bunch and
-# found some useful references.
+# trying to understand what was happening and how to deal with it, but along the
+# way I learned a bunch and found some useful references.
 #
 # This block of comments is where I decided document my locale detour and some of
 # the references I used to find my way out. The first part of that documentation
@@ -520,7 +520,7 @@
 # reasonable fallback that gives us a chance to figure out which code points caused
 # problems.
 #
-# Anyway, that's basically the behavior I noticed when I forced the script to run
+# Anyway, that's basically the behavior I noticed when I forced this script to run
 # in the C locale, but only after I used debugging options to dump the TEXT field
 # mapping arrays that bash built. Understanding how to identify escape sequences
 # that bash couldn't expand made "fixing" them possible. That "fix" is already in,
@@ -534,8 +534,9 @@
 #
 #     LC_ALL=C ./bytedump --text=caret --debug=textmap,unexpanded /dev/null
 #
-# you should see a bunch of four digit hex escape codes that look out of place in
-# the TEXT field mapping array, but drop the "unexpanded" argument and just run
+# you should see a bunch of four hex digit Unicode escape sequences that look out
+# of place in the TEXT field mapping array. Drop "unexpanded" from the arguments
+# handed to the --debug option and instead just run
 #
 #     LC_ALL=C ./bytedump --text=unicode --debug=textmap /dev/null
 #
@@ -551,6 +552,30 @@
 # in vim you'll eventually find the code that's responsible for dealing with all of
 # the unexpanded escape sequences in the text mapping array. It's not trivial, but
 # if you're curious, it's easy to find and only about 10 lines of code.
+#
+#                        ------------------------------
+#
+# So that's basically the end of this locale detour. I learned a bunch, found some
+# good references, and addressed several locale specific issues in this script. But
+# for me, the most important lesson is that there's probably no single approach for
+# handling locale issues in bash scripts (at least not the kind I naively hoped to
+# find). Instead, the responsibility for managing locales, if it's really required,
+# belongs entirely to each bash script.
+#
+# Most bash scripts are short and operate in controlled environments, and in those
+# scripts locale issues can typically be ignored or handled early by setting LC_ALL
+# and then forgetting about it. This script is the exact opposite - it's very long,
+# complicated, not designed to be used for anything other than a demo, but it works
+# and the script tries hard to check any input that comes from the command line and
+# generate useful output that's not always ASCII. LC_ALL is used to manage locales,
+# but it has to be adjusted several times in places that aren't completely obvious.
+# An easy way to find all of them is to type
+#
+#     /LC_ALL="
+#
+# in vim and keep searching until you get back here. There also are a few places
+# where LC_ALL is explicitly set to C for commands, like grep or sort, but none of
+# them affect the locale that the script itself is using.
 #
 
 ##############################
@@ -670,7 +695,7 @@ declare -A SCRIPT_STRINGS=(
     # Script related strings.
     #
 
-    [SCRIPT.usage]="Usage: ${BASH_SOURCE[0]} [OPTIONS] [FILE|-]"
+    [SCRIPT.usage]="Usage: ${BASH_SOURCE[0]:-bytedump} [OPTIONS] [FILE|-]"
     [SCRIPT.help.trigger]="#@#"
 
     #
