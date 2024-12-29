@@ -1464,13 +1464,13 @@ ByteMapper() {
     # of bytes in xxd output probably means there isn't an easy alternative.
     #
 
-    mapper_status=1
+    mapper_status="1"
 
-    mapper_bytes=$1
-    mapper_base=$2
-    mapper_map_name=$3
-    mapper_output_name=$4
-    mapper_separator=$5                         # optional separator
+    mapper_bytes="$1"
+    mapper_base="$2"
+    mapper_map_name="$3"
+    mapper_output_name="$4"
+    mapper_separator="$5"                       # optional separator
 
     mapper_map="$mapper_map_name"               # create the map nameref
     mapper_output="$mapper_output_name"         # create the output nameref
@@ -1513,7 +1513,7 @@ ByteMapper() {
              *) InternalError "base ${mapper_base@Q} has not been implemented";;
         esac
         if [[ -z $mapper_bytes ]]; then
-            mapper_status=0
+            mapper_status="0"
         else
             InternalError "parsing input argument ${1@Q} failed at ${mapper_bytes@Q}"
         fi
@@ -1623,12 +1623,12 @@ ByteSelector() {
     # integer variables.
     #
 
-    selector_status=0
+    selector_status="0"
     selector_base=""
 
-    selector_attribute=$1
-    selector_input=$2
-    selector_output_name=$3
+    selector_attribute="$1"
+    selector_input="$2"
+    selector_output_name="$3"
 
     if [[ $selector_input =~ ^[[:blank:]]*(0[xX]?)?"("(.*)")"[[:blank:]]*$ ]]; then
         #
@@ -1636,13 +1636,13 @@ ByteSelector() {
         # tokens that are completely enclosed in a single set of parentheses, so
         # set the default base and update the selector string.
         #
-        selector_prefix=${BASH_REMATCH[1]}
-        selector_input=${BASH_REMATCH[2]}
+        selector_prefix="${BASH_REMATCH[1]}"
+        selector_input="${BASH_REMATCH[2]}"
 
         case "$selector_prefix" in
-            0[xX]) selector_base=16;;
-                0) selector_base=8;;
-               "") selector_base=10;;
+            0[xX]) selector_base="16";;
+                0) selector_base="8";;
+               "") selector_base="10";;
                 *) InternalError "parser prefix ${selector_prefix@Q} has not been implemented";;
         esac
     fi
@@ -1727,7 +1727,7 @@ ByteSelector() {
 
                 if (( selector_first <= selector_last && selector_first < 256 )); then
                     if (( selector_last > 256 )); then
-                        selector_last=256
+                        selector_last="256"
                     fi
                     for (( selector_index = selector_first; selector_index <= selector_last; selector_index++ )); do
                         selector_output[${selector_index}]="$selector_attribute"
@@ -2667,7 +2667,7 @@ Initialize1_Begin() {
                         # string stored in SCRIPT_ATTRIBUTES. Decoding is done in
                         # Initialize8_Attributes.
                         #
-                        SCRIPT_ATTRIBUTES[$index]+=${SCRIPT_ATTRIBUTES[$index]:+ }"${field}_${attribute}"
+                        SCRIPT_ATTRIBUTES[$index]+="${SCRIPT_ATTRIBUTES[$index]:+ }${field}_${attribute}"
                     fi
                 fi
             done
@@ -3523,7 +3523,7 @@ Options() {
     # apologize for any confusion.
     #
 
-    argc=$#
+    argc="$#"
 
     #
     # A few definitions of simple regular expression definitions that are used to
@@ -3542,7 +3542,7 @@ Options() {
     regex_separator='[[:blank:]]*[:][[:blank:]]*'
 
     while (( $# > 0 )); do
-        arg=$1
+        arg="$1"
         if [[ $arg =~ ^--([^=]+)[=](.+)$ ]]; then
             optarg="${BASH_REMATCH[2]}"
         else
@@ -4242,7 +4242,7 @@ Message() {
     time=""
 
     while (( $# > 0 )); do
-        arg=$1
+        arg="$1"
         if [[ $arg =~ ^[-+]([^=]+)[=](.+)$ ]]; then
             optarg="${BASH_REMATCH[2]}"
         else
