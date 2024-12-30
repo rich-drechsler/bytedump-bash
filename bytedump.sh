@@ -172,8 +172,8 @@
 #       not too long, and it's self-contained, so you should be able to copy
 #       it into your own bash script and test it there. It's what I started
 #       with because I wanted this script's error handling to be consistent,
-#       reasonably reliable, and be able to provide useful information to the
-#       user (or developer).
+#       reasonably reliable, and be able to provide useful information to a
+#       user or developer.
 #
 #   Script Start
 #       The script's Main function that runs the program is called from this
@@ -484,33 +484,29 @@
 # like UTF-8 or ISO-8859-1, that can represent Unicode's first 256 code points. If
 # you're running bash and type
 #
-#     echo $'\uC4 \u42 \uC7'
-#
-# or even
-#
-#     /bin/echo $'\uC4 \u42 \uC7'
-#
-# you should see
-#
-#     Ä B Ç
-#
-# which are the three space separated letters that have the hex numbers 0xC4, 0x42,
-# and 0xC7 as their Unicode code points. You get exactly the same output from
-#
-#     LC_ALL=C echo $'\uC4 \u42 \uC7'
+#     echo $'\uE5 \u42 \uE7'
 #
 # or
 #
-#     LC_ALL=C /bin/echo $'\uC4 \u42 \uC7'
+#     /bin/echo $'\uE5 \u42 \uE7'
+#
+# you'll see three space separated letters that have hex numbers 0xE5, 0x42, and
+# 0xE7 as their Unicode code points. You get exactly the same output from
+#
+#     LC_ALL=C echo $'\uE5 \u42 \uE7'
+#
+# or
+#
+#     LC_ALL=C /bin/echo $'\uE5 \u42 \uE7'
 #
 # but I don't think that's a result that should be too surprising. However, type
 #
 #     LC_ALL=C
-#     echo $'\uC4 \u42 \uC7'
+#     echo $'\uE5 \u42 \uE7'
 #
-# and echo ends up printing
+# and echo (or /bin/echo) end up printing
 #
-#     \u00C4 B \u00C7
+#     \u00E5 B \u00E7
 #
 # on your terminal. Forcing the C local on the instance of bash that you're talking
 # to with your keyboard tells it to use ASCII (7-bit) encoding, but the first and
@@ -1630,6 +1626,10 @@ ByteSelector() {
     selector_input="$2"
     selector_output_name="$3"
 
+    #
+    # First check for the optional base prefix.
+    #
+
     if [[ $selector_input =~ ^[[:blank:]]*(0[xX]?)?"("(.*)")"[[:blank:]]*$ ]]; then
         #
         # Selector string starts with an optional base prefix and is followed by
@@ -1654,7 +1654,7 @@ ByteSelector() {
             #
             # Omitting leading blanks here means the regular expressions that do the
             # real work don't have to worry about them. Decided to save a copy of the
-            # current input, because selector_input might be modified when we want to
+            # initial input, because selector_input might be modified when we want to
             # use it in an error message.
             #
             selector_input="${BASH_REMATCH[1]}"
@@ -1662,7 +1662,7 @@ ByteSelector() {
 
             #
             # Implemented tokens can be identified by looking at how they start. It's
-            # an approach that improves error messages when we notice mistakes.
+            # an approach that also improves error messages when we notice mistakes.
             #
             if [[ $selector_input =~ ^(0[xX]?)?[[:xdigit:]] ]]; then
                 #
@@ -1783,9 +1783,11 @@ ByteSelector() {
                 #
                 # Next token looks like a slightly modified Rust raw string literal.
                 # It accepts matching single or double quotes in the delimiters and
-                # doesn't explicitly reject any characters. Individual characters in
-                # that string are converted to Unicode code points and the ones less
-                # than 256 are the bytes that are selected.
+                # doesn't explicitly reject any characters. All of the bytes between
+                # between the opening and closing delimiters are accepted. After that
+                # the individual characters represented by those bytes (in the user's
+                # locale) are converted to Unicode code points and the ones less than
+                # 256 identify the bytes that the user wanted us to select.
                 #
                 # Once we've recognized the prefix it's easy to construct the suffix
                 # that's supposed to mark the end of this "raw string". After that we
@@ -1793,9 +1795,8 @@ ByteSelector() {
                 #
                 # NOTE - this is pretty difficult code and really doesn't add much to
                 # program. It's here primarily because it felt like a challenge, and
-                # I wanted to see if I could implement it in this bash script, ideally
-                # using a purely bash solution. Removing this code would not be a big
-                # deal.
+                # I wanted to see if I could implement it in this bash script using a
+                # purely bash solution. Removing this code would not be a big deal.
                 #
                 # NOTE - if you're really going to try to follow this part, remember
                 # that at this point LC_ALL should be set to the script's preferred
@@ -1823,7 +1824,7 @@ ByteSelector() {
                 # first step is remove the raw string's prefix from the current selector
                 # string. Once that's done we can use a regular expression to find the
                 # first occurence of the raw string's suffix, and after that it's pretty
-                # easy grab everything that we need.
+                # easy to grab everything that we need.
                 #
 
                 selector_input="${selector_input:${#selector_prefix}}"
@@ -2196,7 +2197,7 @@ DebugHandler() {
                 #
                 #     --debug=textmap
                 #
-                # option, rather than this code, to debug the textmap array.
+                # option, rather than this code, to look at the textmap array.
                 #
                 if [[ -n ${SCRIPT_STRINGS[TEXT.map]} ]]; then
                     map="${SCRIPT_STRINGS[TEXT.map]}"
@@ -2579,9 +2580,10 @@ Help() {
     #
     # NOTE - the HelpScanner function reads from standard input, so it doesn't
     # care where the documentation comes from. Storing it in a here document is
-    # a very reasonable alternative that's often used in bash scripts. Regular
-    # bash strings, whether they're single or double quoted, have issues with
-    # individual characters that make them a less convenient alternative.
+    # a very good alternative (as long as the delimiter word is quoted) that's
+    # often used in bash scripts. Regular bash strings, whether they're single
+    # or double quoted, have issues with individual characters that make them a
+    # less convenient alternative.
     #
 
     if [[ -f ${BASH_SOURCE[0]} ]] && [[ -r ${BASH_SOURCE[0]} ]]; then
@@ -2703,11 +2705,11 @@ Initialize2_Fields() {
             SCRIPT_STRINGS[ADDR.digits]="${SCRIPT_STRINGS[ADDR.format.width]#0}";;
 
         EMPTY)
-            SCRIPT_STRINGS[ADDR.format.width]=0
-            SCRIPT_STRINGS[ADDR.format.width-xxd]=0
+            SCRIPT_STRINGS[ADDR.format.width]="0"
+            SCRIPT_STRINGS[ADDR.format.width-xxd]="0"
             SCRIPT_STRINGS[ADDR.format]=""
             SCRIPT_STRINGS[ADDR.format-xxd]=""
-            SCRIPT_STRINGS[ADDR.digits]=0;;
+            SCRIPT_STRINGS[ADDR.digits]="0";;
 
         HEX-LOWER)
             SCRIPT_STRINGS[ADDR.format.width]="${SCRIPT_STRINGS[ADDR.format.width]:-${SCRIPT_STRINGS[ADDR.format.width.default]}}"
@@ -2757,31 +2759,31 @@ Initialize2_Fields() {
     case "${SCRIPT_STRINGS[TEXT.output]}" in
         ASCII)
             SCRIPT_STRINGS[TEXT.map]="${SCRIPT_STRINGS[TEXT.has.attributes]:+SCRIPT_ASCII_TEXT_MAP}"
-            SCRIPT_STRINGS[TEXT.chars.per.octet]=1;;
+            SCRIPT_STRINGS[TEXT.chars.per.octet]="1";;
 
         CARET)
             SCRIPT_STRINGS[TEXT.map]="SCRIPT_CARET_TEXT_MAP"
-            SCRIPT_STRINGS[TEXT.chars.per.octet]=2;;
+            SCRIPT_STRINGS[TEXT.chars.per.octet]="2";;
 
         CARET_ESCAPE)
             SCRIPT_STRINGS[TEXT.map]="SCRIPT_CARET_ESCAPE_TEXT_MAP"
-            SCRIPT_STRINGS[TEXT.chars.per.octet]=2;;
+            SCRIPT_STRINGS[TEXT.chars.per.octet]="2";;
 
         EMPTY)
             SCRIPT_STRINGS[TEXT.map]=""
-            SCRIPT_STRINGS[TEXT.chars.per.octet]=0
+            SCRIPT_STRINGS[TEXT.chars.per.octet]="0"
             SCRIPT_STRINGS[BYTE.field.separator]=""
             SCRIPT_STRINGS[BYTE.field.separator-xxd]=""
             SCRIPT_STRINGS[DUMP.layout]="${SCRIPT_STRINGS[DUMP.layout-xxd]}";;
 
         UNICODE)
             SCRIPT_STRINGS[TEXT.map]="SCRIPT_UNICODE_TEXT_MAP"
-            SCRIPT_STRINGS[TEXT.chars.per.octet]=1;;
+            SCRIPT_STRINGS[TEXT.chars.per.octet]="1";;
 
         XXD)
             SCRIPT_STRINGS[TEXT.output]="ASCII"
             SCRIPT_STRINGS[TEXT.map]="${SCRIPT_STRINGS[TEXT.has.attributes]:+SCRIPT_ASCII_TEXT_MAP}"
-            SCRIPT_STRINGS[TEXT.chars.per.octet]=1;;
+            SCRIPT_STRINGS[TEXT.chars.per.octet]="1";;
 
          *) InternalError "text output ${SCRIPT_STRINGS[TEXT.output]@Q} has not been implemented";;
     esac
@@ -2815,21 +2817,21 @@ Initialize2_Fields() {
         BINARY)
             SCRIPT_STRINGS[BYTE.output-xxd]="BINARY"
             SCRIPT_STRINGS[BYTE.map]="${SCRIPT_STRINGS[BYTE.has.attributes]:+SCRIPT_BYTE_MAP}"
-            SCRIPT_STRINGS[BYTE.digits.per.octet]=8
-            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]=8;;
+            SCRIPT_STRINGS[BYTE.digits.per.octet]="8"
+            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]="8";;
 
         DECIMAL)
             SCRIPT_STRINGS[BYTE.output-xxd]="HEX-LOWER"
             SCRIPT_STRINGS[BYTE.map]="SCRIPT_BYTE_MAP"
-            SCRIPT_STRINGS[BYTE.digits.per.octet]=3
-            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]=2;;
+            SCRIPT_STRINGS[BYTE.digits.per.octet]="3"
+            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]="2";;
 
         EMPTY)
             if [[ ${SCRIPT_STRINGS[TEXT.output]} != "EMPTY" ]]; then
                 SCRIPT_STRINGS[BYTE.output-xxd]="HEX-LOWER"
                 SCRIPT_STRINGS[BYTE.map]=""
-                SCRIPT_STRINGS[BYTE.digits.per.octet]=0
-                SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]=2
+                SCRIPT_STRINGS[BYTE.digits.per.octet]="0"
+                SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]="2"
                 SCRIPT_STRINGS[DUMP.layout]="${SCRIPT_STRINGS[DUMP.layout-xxd]}"
             else
                 Error "byte and text fields can't both be empty"
@@ -2838,27 +2840,27 @@ Initialize2_Fields() {
         HEX-LOWER)
             SCRIPT_STRINGS[BYTE.output-xxd]="HEX-LOWER"
             SCRIPT_STRINGS[BYTE.map]="${SCRIPT_STRINGS[BYTE.has.attributes]:+SCRIPT_BYTE_MAP}"
-            SCRIPT_STRINGS[BYTE.digits.per.octet]=2
-            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]=2;;
+            SCRIPT_STRINGS[BYTE.digits.per.octet]="2"
+            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]="2";;
 
         HEX-UPPER)
             SCRIPT_STRINGS[BYTE.output-xxd]="HEX-UPPER"
             SCRIPT_STRINGS[BYTE.map]="${SCRIPT_STRINGS[BYTE.has.attributes]:+SCRIPT_BYTE_MAP}"
-            SCRIPT_STRINGS[BYTE.digits.per.octet]=2
-            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]=2;;
+            SCRIPT_STRINGS[BYTE.digits.per.octet]="2"
+            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]="2";;
 
         OCTAL)
             SCRIPT_STRINGS[BYTE.output-xxd]="HEX-LOWER"
             SCRIPT_STRINGS[BYTE.map]="SCRIPT_BYTE_MAP"
-            SCRIPT_STRINGS[BYTE.digits.per.octet]=3
-            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]=2;;
+            SCRIPT_STRINGS[BYTE.digits.per.octet]="3"
+            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]="2";;
 
         XXD)
             SCRIPT_STRINGS[BYTE.output]="HEX-LOWER"
             SCRIPT_STRINGS[BYTE.output-xxd]="HEX-LOWER"
             SCRIPT_STRINGS[BYTE.map]="${SCRIPT_STRINGS[BYTE.has.attributes]:+SCRIPT_BYTE_MAP}"
-            SCRIPT_STRINGS[BYTE.digits.per.octet]=2
-            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]=2;;
+            SCRIPT_STRINGS[BYTE.digits.per.octet]="2"
+            SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]="2";;
 
          *) InternalError "byte output ${SCRIPT_STRINGS[BYTE.output]@Q} has not been implemented";;
     esac
@@ -2901,11 +2903,11 @@ Initialize2_Fields() {
     SCRIPT_STRINGS[BYTE.field.separator.size]="${#SCRIPT_STRINGS[BYTE.field.separator]}"
 
     if [[ -z ${SCRIPT_STRINGS[BYTE.separator]} ]]; then
-        SCRIPT_STRINGS[BYTE.grouping.xxd]=0
+        SCRIPT_STRINGS[BYTE.grouping.xxd]="0"
         SCRIPT_STRINGS[BYTE.separator-xxd]=""
         SCRIPT_STRINGS[BYTE.separator.size.xxd]="${#SCRIPT_STRINGS[BYTE.separator-xxd]}"
     else
-        SCRIPT_STRINGS[BYTE.grouping.xxd]=1
+        SCRIPT_STRINGS[BYTE.grouping.xxd]="1"
         SCRIPT_STRINGS[BYTE.separator-xxd]=" "
         SCRIPT_STRINGS[BYTE.separator.size.xxd]="${#SCRIPT_STRINGS[BYTE.separator-xxd]}"
     fi
@@ -2933,7 +2935,7 @@ Initialize3_FieldWidths() {
             # last thing on a line, so setting the field width to 0 guarantees
             # that printf won't pad any of them on the right with spaces.
             #
-            SCRIPT_STRINGS[BYTE.field.width]=0
+            SCRIPT_STRINGS[BYTE.field.width]="0"
         else
             #
             # Otherwise try to accurately calculate the BYTE field width in the
@@ -2959,7 +2961,7 @@ Initialize3_FieldWidths() {
         # the best way to run this script.
         #
         SCRIPT_STRINGS[DUMP.record.length-xxd]="${SCRIPT_STRINGS[DUMP.record.length.limit.xxd]}"
-        SCRIPT_STRINGS[BYTE.field.width]=0
+        SCRIPT_STRINGS[BYTE.field.width]="0"
     fi
 
     SCRIPT_STRINGS[BYTE.field.width.xxd]=$((
@@ -3016,9 +3018,9 @@ Initialize4_Layout() {
 
         padding=$((${SCRIPT_STRINGS[BYTE.prefix.size]} - ${SCRIPT_STRINGS[TEXT.prefix.size]}))
         if (( padding > 0 )); then
-            SCRIPT_STRINGS[TEXT.indent]+=$(printf "%*s" "$padding" "")
+            SCRIPT_STRINGS[TEXT.indent]+="$(printf "%*s" "$padding" "")"
         elif (( padding < 0 )); then
-            SCRIPT_STRINGS[BYTE.indent]+=$(printf "%*s" "$((-padding))" "")
+            SCRIPT_STRINGS[BYTE.indent]+="$(printf "%*s" "$((-padding))" "")"
         fi
 
         #
@@ -3029,7 +3031,7 @@ Initialize4_Layout() {
 
         padding=$((${SCRIPT_STRINGS[BYTE.digits.per.octet]} - ${SCRIPT_STRINGS[TEXT.chars.per.octet]} + ${SCRIPT_STRINGS[BYTE.separator.size]} - ${SCRIPT_STRINGS[TEXT.separator.size]}))
         if (( padding > 0 )); then
-            SCRIPT_STRINGS[TEXT.separator]+=$(printf "%*s" "$padding" "")
+            SCRIPT_STRINGS[TEXT.separator]+="$(printf "%*s" "$padding" "")"
             SCRIPT_STRINGS[TEXT.separator.size]="${#SCRIPT_STRINGS[TEXT.separator]}"
             if [[ ${SCRIPT_STRINGS[TEXT.output]} == "ASCII" ]] && [[ -z ${SCRIPT_STRINGS[TEXT.map]} ]]; then
                 #
@@ -3039,7 +3041,7 @@ Initialize4_Layout() {
                 SCRIPT_STRINGS[TEXT.map]="SCRIPT_ASCII_TEXT_MAP"
             fi
         elif (( padding < 0 )); then
-            SCRIPT_STRINGS[BYTE.separator]+=$(printf "%*s" "$((-padding))" "")
+            SCRIPT_STRINGS[BYTE.separator]+="$(printf "%*s" "$((-padding))" "")"
             SCRIPT_STRINGS[BYTE.separator.size]="${#SCRIPT_STRINGS[BYTE.separator]}"
         fi
 
@@ -3051,7 +3053,7 @@ Initialize4_Layout() {
 
         padding=$((${SCRIPT_STRINGS[BYTE.digits.per.octet]} - ${SCRIPT_STRINGS[TEXT.chars.per.octet]}))
         if (( padding > 0 )); then
-            SCRIPT_STRINGS[TEXT.prefix]+=$(printf "%*s" "$padding" "")
+            SCRIPT_STRINGS[TEXT.prefix]+="$(printf "%*s" "$padding" "")"
         elif (( padding < 0 )); then
             InternalError "chars per octet exceeds digits per octet"
         fi
@@ -3064,7 +3066,7 @@ Initialize4_Layout() {
         if [[ ${SCRIPT_STRINGS[ADDR.output]} != "EMPTY" ]]; then
             padding=$((${SCRIPT_STRINGS[ADDR.prefix.size]} + ${SCRIPT_STRINGS[ADDR.digits]} + ${SCRIPT_STRINGS[ADDR.suffix.size]} + ${SCRIPT_STRINGS[ADDR.field.separator.size]}))
             if (( padding > 0 )); then
-                SCRIPT_STRINGS[TEXT.indent]+=$(printf "%*s" "$padding" "")
+                SCRIPT_STRINGS[TEXT.indent]+="$(printf "%*s" "$padding" "")"
             fi
         fi
     elif [[ ${SCRIPT_STRINGS[DUMP.layout]} != "WIDE" ]]; then
@@ -4231,7 +4233,7 @@ Message() {
     caller=()
     date=""
     format="%b\n"
-    frame=0
+    frame="0"
     info=""
     output="${MESSAGE_STRINGS[STATE.output]}"
     pid=""
@@ -4271,7 +4273,7 @@ Message() {
                 frame=$((frame + 1));;
 
             -frame)
-                frame=0;;
+                frame="0";;
 
             -info)
                 info="";;
