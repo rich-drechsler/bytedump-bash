@@ -1531,6 +1531,7 @@ ByteSelector() {
     local selector_input
     local selector_input_start
     local -i selector_last
+    local selector_lc_all
     local -n selector_output
     local selector_output_name
     local selector_prefix
@@ -1618,6 +1619,16 @@ ByteSelector() {
     # However, unlike ByteMapper, this function isn't used much and doesn't have
     # to deal with binary numbers, so printf would be an easy alternative.
     #
+    # NOTE - recent locale related change (that hasn't been well tested but seems
+    # to work) immediately saves the value assigned to LC_ALL and then switches to
+    # the user's locale. Selections are all made using that locale and right before
+    # returning the value of LC_ALL saved when the function started is stored back
+    # in LC_ALL. Needs more testing, but seems to handle recursion and restoration
+    # of LC_ALL properly.
+    #
+
+    selector_lc_all="$LC_ALL"
+    LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
 
     selector_status="0"
     selector_base=""
@@ -1798,25 +1809,6 @@ ByteSelector() {
                 # I wanted to see if I could implement it in this bash script using a
                 # purely bash solution. Removing this stuff would not be a big deal.
                 #
-                # NOTE - if you're really going to try to follow this part, remember
-                # that at this point LC_ALL should be set to the script's preferred
-                # locale (i.e., C). That means the regular expression, string length,
-                # and substring operations used to extract the body of the raw string
-                # token all operate on individual bytes. After we have the bytes that
-                # make up the body of the raw string we to switch the user's locale,
-                # because that's how we translate those bytes into the Unicode code
-                # points of the characters that the user wants us to select.
-                #
-                # NOTE - looking through the individual bytes in the string that came
-                # directly from the user for sequences of ASCII bytes that make up the
-                # delimiters assumes those bytes don't appear in encodings of any other
-                # characters. The way the body of the string is recovered also assumes
-                # the byte ordering of the encoded characters doesn't matter. Both of
-                # those assumptions are valid for UTF-8 and ISO-8859, but there are
-                # character encodings (e.g., UTF-16) that don't fit the requirements.
-                # In this context I don't think there's anything to worry about, but
-                # I could be wrong - if you disagree just remove this block of code.
-                #
 
                 selector_prefix="${BASH_REMATCH[1]}"
                 selector_suffix="${BASH_REMATCH[3]}${BASH_REMATCH[2]}"
@@ -1878,15 +1870,6 @@ ByteSelector() {
                         # conversions).
                         #
 
-                        #
-                        # We need to extract individual characters that the user entered on
-                        # the command line, rather than the individual bytes that were used
-                        # to encode those characters. That means we have to restore LC_ALL
-                        # to whatever it was when this script started.
-                        #
-
-                        LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
-
                         selector_chars=()
                         for (( selector_index = 0; selector_index < ${#selector_body}; selector_index++ )); do
                             #
@@ -1918,14 +1901,6 @@ ByteSelector() {
                             fi
                         done
 
-                        #
-                        # Finished with the "raw string", so make sure LC_ALL is set back
-                        # to the preferred locale. This must happen before the ByteSelector
-                        # recursive call that's used to process the selector_chars array.
-                        #
-
-                        LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
-
                         if (( ${#selector_chars[@]} > 0 )); then
                             ByteSelector "$selector_attribute" "0x(${selector_chars[*]})" "$selector_output_name"
                         fi
@@ -1942,6 +1917,12 @@ ByteSelector() {
     else
         InternalError "${selector_output_name@Q} is not recognized as an attribute array name"
     fi
+
+    #
+    # Restore LC_ALL to what it was when this function was called.
+    #
+
+    LC_ALL="$selector_lc_all"
 
     return "$selector_status"
 }
