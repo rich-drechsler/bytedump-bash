@@ -473,7 +473,7 @@
 #
 #                        ------------------------------
 #
-# What I hope to do in this section is show you how you can duplicate the behavior
+# What I want to do in this section is show you how you can duplicate the behavior
 # that I noticed when I first started some serious locale testing. I'll begin with
 # a few examples using echo, mostly to show you the behavior and convince you it's
 # not specific to this script. After that I'll give you a few command lines to use
@@ -521,8 +521,8 @@
 # mapping arrays that bash built. Understanding how to identify escape sequences
 # that bash couldn't expand made "fixing" them possible. That "fix" is already in,
 # but I wanted to make sure anyone could see the initial problem, exactly the way
-# I did, so I added a --debug option that disables the "fix", which sounds like a
-# very strange thing to do. If you run this script using the command line
+# I did, so I added a --debug argument (i.e., unexpanded) that disables the "fix".
+# If you run this script using the command line
 #
 #     LC_ALL=C ./bytedump --text=unicode --debug=textmap,unexpanded /dev/null
 #
@@ -553,25 +553,25 @@
 #
 # So that's basically the end of this locale detour. I learned a bunch, found some
 # good references, and addressed several locale specific issues in this script. But
-# for me, the most important lesson is that there's probably no single approach for
-# handling locale issues in bash scripts (at least not the kind I naively hoped to
-# find). Instead, the responsibility for managing locales, if it's really required,
-# belongs entirely to each bash script.
+# for me, the most important lesson is that there's no single approach for handling
+# locale issues in all bash scripts (at least not the kind I naively hoped to find).
+# Instead, responsibility for managing locales, if it's actually required, belongs
+# entirely to each bash script.
 #
 # Most bash scripts are short and operate in controlled environments, and in those
-# scripts locale issues can typically be ignored or handled early by setting LC_ALL
-# and then forgetting about it. This script is the exact opposite - it's very long,
-# complicated, not designed to be used for anything other than a demo, but it works
-# and the script tries hard to check any input that comes from the command line and
-# generate useful output that's not always ASCII. LC_ALL is used to manage locales,
-# but it has to be adjusted several times in places that aren't completely obvious.
-# An easy way to find all of them is to type
+# scripts locale issues can probably be ignored or handled early by setting LC_ALL
+# and then forgetting about it. This script is the exact opposite - it's long, very
+# complicated, and it's not designed to be used for anything other than a demo. But
+# the script works and it tries hard to check any input that comes from the command
+# line and generate useful output that's not always ASCII. LC_ALL is used to manage
+# locales, but it has to be adjusted in places that aren't at all obvious. An easy
+# way for you to find where I decided to change LC_ALL is to type
 #
 #     /LC_ALL="
 #
-# in vim and keep searching until you get back here. There also are a few places
-# where LC_ALL is explicitly set to C for commands, like grep or sort, but none of
-# them affect the locale that the script itself is using.
+# (with the double quote) in vim and keep searching until you get back here. There
+# also are a few instances where LC_ALL is explicitly set to C for commands, like
+# grep or sort, but none of them affect the locale that the script itself is using.
 #
 
 ##############################
@@ -629,7 +629,7 @@ declare -Ar SCRIPT_LC_ALL=(
 )
 
 #
-# Then force the script's preferred locale.
+# Force the script's preferred locale.
 #
 
 LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
@@ -1604,6 +1604,7 @@ ByteSelector() {
     # prefix. For example,
     #
     #       r"hello, world"
+    #       r'hello, world'
     #      r#'hello, world'#
     #     r##"hello, world"##
     #
@@ -1615,8 +1616,7 @@ ByteSelector() {
     # NOTE - selector_first and selector_last need to be integers, because we use
     # bash's base conversion syntax to convert hex and octal numbers to decimal.
     # However, unlike ByteMapper, this function isn't used much and doesn't have
-    # to deal with binary numbers, so there would be a pretty easy alternative to
-    # integer variables.
+    # to deal with binary numbers, so printf would be an easy alternative.
     #
 
     selector_status="0"
@@ -1783,20 +1783,20 @@ ByteSelector() {
                 #
                 # Next token looks like a slightly modified Rust raw string literal.
                 # It accepts matching single or double quotes in the delimiters and
-                # doesn't explicitly reject any characters. All of the bytes between
-                # between the opening and closing delimiters are accepted. After that
+                # doesn't explicitly reject any characters. Everything between the
+                # the opening and closing string delimiters is accepted. After that
                 # the individual characters represented by those bytes (in the user's
                 # locale) are converted to Unicode code points and the ones less than
-                # 256 identify the bytes that the user wanted us to select.
+                # 256 identify the bytes that the user asked us to select.
                 #
                 # Once we've recognized the prefix it's easy to construct the suffix
                 # that's supposed to mark the end of this "raw string". After that we
                 # can use them to separate $selector_input into appropriate pieces.
                 #
                 # NOTE - this is pretty difficult code and really doesn't add much to
-                # program. It's here primarily because it felt like a challenge, and
+                # the program. It's here mostly because it felt like a challenge, and
                 # I wanted to see if I could implement it in this bash script using a
-                # purely bash solution. Removing this code would not be a big deal.
+                # purely bash solution. Removing this stuff would not be a big deal.
                 #
                 # NOTE - if you're really going to try to follow this part, remember
                 # that at this point LC_ALL should be set to the script's preferred
@@ -1804,8 +1804,18 @@ ByteSelector() {
                 # and substring operations used to extract the body of the raw string
                 # token all operate on individual bytes. After we have the bytes that
                 # make up the body of the raw string we to switch the user's locale,
-                # because that's how we translate those bytes into the characters the
-                # user intended.
+                # because that's how we translate those bytes into the Unicode code
+                # points of the characters that the user wants us to select.
+                #
+                # NOTE - looking through the individual bytes in the string that came
+                # directly from the user for sequences of ASCII bytes that make up the
+                # delimiters assumes those bytes don't appear in encodings of any other
+                # characters. The way the body of the string is recovered also assumes
+                # the byte ordering of the encoded characters doesn't matter. Both of
+                # those assumptions are valid for UTF-8 and ISO-8859, but there are
+                # character encodings (e.g., UTF-16) that don't fit the requirements.
+                # In this context I don't think there's anything to worry about, but
+                # I could be wrong - if you disagree just remove this block of code.
                 #
 
                 selector_prefix="${BASH_REMATCH[1]}"
@@ -4806,6 +4816,7 @@ exit 0                  # skip everything else in this file
 #@#         example,
 #@#
 #@#               r"aeiouAEIOU"
+#@#               r'aeiouAEIOU'
 #@#              r#'aeiouAEIOU'#
 #@#             r##"aeiouAEIOU"##
 #@#
