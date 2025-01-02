@@ -826,7 +826,7 @@ declare -A SCRIPT_STRINGS=(
     [DEBUG.xxd]="FALSE"
 
     #
-    # The value assigned to DEBUG.strings.regexes are the space separated prefixes
+    # The value assigned to DEBUG.strings.prefixes are the space separated prefixes
     # of the keys that are dumped when the --debug=strings option is used. You can
     # change this to select the key/value pairs you're interested in.
     #
@@ -851,9 +851,12 @@ declare -A SCRIPT_STRINGS=(
 # field mapping arrays are created LC_ALL is set back to the value that the script
 # prefers.
 #
-# NOTE - unrelated benefits of using Unicode escape sequences are that hex numbers
-# in text mapping array initializers make them easy to build (with simple scripts)
-# and should also help you decide if those initializers are right or wrong.
+# NOTE - all of the supported TEXT field mapping arrays are declared and completely
+# initialized right here, even though the script won't ever need more than one. An
+# alternative would be to wait until all of the command line options are processed
+# and then only build the one that's really needed. The brute force approach that's
+# currently used has benefits - it's simple and the hex numbers used in the Unicode
+# escape sequences should help you decide if the initializers are right or wrong.
 #
 # NOTE - the length (in characters) of every string that ends up in an initialized
 # TEXT field mapping array must match (e.g., all 1 or 2 characters) because it has
@@ -1101,6 +1104,11 @@ LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
 # then the SCRIPT_BYTE_MAP array is built when Initialize7_Maps is called during
 # initialization, and it's used by the ByteMapper function, exactly the way text
 # mapping arrays are used.
+#
+# NOTE - this is a different approach than what was used to build the TEXT field
+# mapping arrays. That's because all 256 elements in any BYTE field mapping array
+# are built the same way, and that means each array is simple to initialize using
+# bash's brace expansion.
 #
 
 declare -a SCRIPT_BYTE_MAP=()
