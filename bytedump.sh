@@ -3561,7 +3561,6 @@ Options() {
                             HEX) SCRIPT_STRINGS[ADDR.output]="HEX-UPPER";;
                           octal) SCRIPT_STRINGS[ADDR.output]="OCTAL";;
                             xxd) SCRIPT_STRINGS[ADDR.output]="XXD";;
-                             "") ;;
                               *) InternalError "option ${arg@Q} has not been completely implemented";;
                     esac
                     if [[ -n $width ]]; then
@@ -3621,7 +3620,6 @@ Options() {
                             HEX) SCRIPT_STRINGS[BYTE.output]="HEX-UPPER";;
                           octal) SCRIPT_STRINGS[BYTE.output]="OCTAL";;
                             xxd) SCRIPT_STRINGS[BYTE.output]="XXD";;
-                             "") ;;
                               *) InternalError "option ${arg@Q} has not been completely implemented";;
                     esac
                     if [[ -n $length ]]; then
@@ -3795,7 +3793,6 @@ Options() {
                          escape) SCRIPT_STRINGS[TEXT.output]="CARET_ESCAPE";;
                         unicode) SCRIPT_STRINGS[TEXT.output]="UNICODE";;
                             xxd) SCRIPT_STRINGS[TEXT.output]="XXD";;
-                             "") ;;
                               *) InternalError "option ${arg@Q} has not been completely implemented";;
                     esac
                     if [[ -n $length ]]; then
