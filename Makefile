@@ -1,23 +1,32 @@
-#
-# A trivial makefile for the bash version of the bytedump program. It doesn't
-# even have an install target because this bash script is a demo that should
-# only be used to dump the bytes in small files.
-#
+##
+## Makefile for the bash implementation of the bytedump program. Take a look at
+##
+##     https://www.gnu.org/software/make/manual/make.html
+##
+## if you want more information about GNU make.
+##
+## A common complaint about makefiles is the tab indentation required in rules. Vim
+## is editor I usually use, and by default my .vimrc file tells it to automatically
+## expand tabs. That would break makefiles, so I also have to include
+##
+##     autocmd FileType make setlocal noexpandtab
+##
+## in .vimrc to prevent tab expansion when vim decides I'm editing a makefile.
+##
 
-MAKEFILE = $(firstword $(MAKEFILE_LIST))
+MAKEFILE := $(firstword $(MAKEFILE_LIST))
 
-SHELLFILE = bytedump.sh
-SORTED_BYTES = sorted_bytes
+BYTEDUMP := bytedump
+CHARCLASS := charclass
+SORTED_BYTES := sorted_bytes
 
-PROGRAM = $(SHELLFILE:.sh=)
-
-all : $(PROGRAM) $(SORTED_BYTES)
+all : $(BYTEDUMP) $(SORTED_BYTES)
 
 clean :
-	rm -f $(SORTED_BYTES)
+	rm -f $(SORTED_BYTES) $(CHARCLASS)
 
 clobber : clean
-	rm -f $(PROGRAM)
+	rm -f $(BYTEDUMP)
 
 #
 # The sorted_bytes target builds a 256 byte file (named sorted_bytes) where each
@@ -32,7 +41,7 @@ clobber : clean
 #
 # NOTE - this makefile currently uses make's default shell, and that undoubtedly
 # means using /bin/echo (rather than the default shell's echo builtin) to handle
-# hex expansions. An different approach would be to force bash on make by adding
+# hex expansions. A different approach would be to force bash on make by adding
 #
 #     SHELL = /bin/bash
 #

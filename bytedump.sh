@@ -1634,6 +1634,16 @@ ByteSelector() {
     # in LC_ALL. Needs more testing, but seems to handle recursion and restoration
     # of LC_ALL properly.
     #
+    # NOTE - there appear to be different opinions about several of the HEX lists
+    # that are used to implement "character classes" in the recursive ByteSelector
+    # calls in this function. ChatGPT, when asked carefully about those HEX lists,
+    # seems to think "[:lower:]", "[:upper:]", and "[:punct:]" aren't all correct.
+    # However, I've now included a short bash script (named charclass) that can be
+    # used to build those HEX lists by using the POSIX character classes that are
+    # available in bash regular expressions, and in all cases the output of that
+    # script agrees with the HEX lists that are hardcoded in this function. It's
+    # definitely not urgent, but eventually deserves a closer look.
+    #
 
     selector_lc_all="$LC_ALL"
     LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
@@ -1768,6 +1778,11 @@ ByteSelector() {
                     # the POSIX standard, plus 3 custom character class names that seem like
                     # a convenient way to select familiar (or otherwise obvious) contiguous
                     # blocks of bytes.
+                    #
+                    # NOTE - ChatGPT seems to think HEX lists used to implement the "lower",
+                    # "upper", and "punct" character classes aren't completely correct. Take
+                    # a look at the charclass.sh script that's now included with the source
+                    # code for more details.
                     #
                     case "$selector_class" in
                         #
