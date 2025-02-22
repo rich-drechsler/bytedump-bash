@@ -223,7 +223,7 @@
 # asks bash to create an indexed array initialized with 256 one character strings,
 # most of which are created using Unicode escape sequences that bash supports.
 #
-# The "Imported Library Code" section is a good place to start if you want to read
+# The "Imported Library Code" section is a good place to visit if you want to read
 # some relatively easy, self-contained code. Just remember it came from a private
 # library, so it's more general than this script really needs. I wanted to make it
 # easy to port improvements back into the library, so some names changed and a few
@@ -316,8 +316,8 @@
 # trying to understand what was happening and how to deal with it, but along the
 # way I learned a bunch and found some useful references.
 #
-# This block of comments is where I decided document my locale detour and some of
-# the references I used to find my way out. The first part of that documentation
+# This block of comments is where I decided to document my locale detour and some
+# of the references I used to find my way out. The first part of that documentation
 # tries to provide information about locales that's targeted at bash programmers.
 # The second part includes a few simple bash examples that illustrate some of the
 # issues and at least one command line that can force them to show up when you run
@@ -1202,8 +1202,8 @@ declare -Ar SCRIPT_ANSI_ESCAPE=(
     #
     #    $'\e[39m'
     #
-    # but in our implementation, an empty string accomplishes the same thing and
-    # is a much better choice.
+    # but in our implementation, an empty string accomplishes the same thing, so
+    # it's a much better choice.
     #
 
     [FOREGROUND.reset]=""
@@ -1352,8 +1352,8 @@ Arguments() {
     # Treating "-" as an abbreviation for standard input, before checking to see
     # if it's the name of a readable file or directory in the current directory,
     # matches the way Linux commands typically handle it. A pathname containing
-    # at least one "/" (e.g., ./-) is the way you reference a file named "-" on
-    # the command line.
+    # at least one "/" (e.g., ./-) is how to reference a file named "-" on the
+    # command line.
     #
 
     if (( $# <= 1 )); then
@@ -1419,7 +1419,7 @@ ByteMapper() {
     # stored in mapper_separator. There probably are other small improvements,
     # but this function is only called twice, so replacing those two calls with
     # the code that actually does the mapping might be the easiest way to speed
-    # things up a little.
+    # things up a little more, but it definitely wouldn't be worth the effort.
     #
     # NOTE - namerefs are convenient way to handle different mapping arrays and
     # they're an efficient way to return the translation to the caller, but they
@@ -1781,8 +1781,8 @@ ByteSelector() {
                     #
                     # NOTE - ChatGPT seems to think HEX lists used to implement the "lower",
                     # "upper", and "punct" character classes aren't completely correct. Take
-                    # a look at the charclass.sh script that's now included with the source
-                    # code for more details.
+                    # a look at the charclass.sh script that's now included in the source
+                    # code package for more details.
                     #
                     case "$selector_class" in
                         #
@@ -1846,7 +1846,7 @@ ByteSelector() {
                 # the selector.
                 #
                 # So the bottom line is we have to be careful "parsing" raw strings. The
-                # first step is remove the raw string's prefix from the current selector
+                # next step is remove the raw string's prefix from the current selector
                 # string. Once that's done we can use a regular expression to find the
                 # first occurence of the raw string's suffix, and after that it's pretty
                 # easy to grab everything that we need.
@@ -2501,7 +2501,11 @@ DumpXXDInternal() {
 
                 #
                 # At this point everything's ready, so see if $dump_record_length
-                # is zero or not to decide what needs to be done.
+                # is 0 or not to decide what needs to be done. A value of 0 means
+                # the entire dump should be treated as a single record, otherwise
+                # each record has a fixed length that matches the output that xxd
+                # generated. Single record output usually means the TEXT field has
+                # to be buffered.
                 #
 
                 if (( dump_record_length > 0 )); then
@@ -2628,7 +2632,8 @@ Initialize() {
     #
     # NOTE - the good news is, if you're willing to believe this stuff works, you
     # probably can skip all the initialization, return to Main, and still follow
-    # the rest of the script.
+    # the rest of the script. This is ugly, difficult bash code, and I recommend
+    # you don't waste much time trying to follow it.
     #
 
     Initialize1_Begin           # must be called first
