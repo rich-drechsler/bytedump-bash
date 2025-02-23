@@ -7,8 +7,8 @@
 # recursive calls. I didn't bother saving the original version of this script, so I
 # was forced to rewrite it when I wanted to check those HEX lists again. Since there
 # appears to be a little disagreement about three of those HEX lists, I felt it was
-# important to include this script in the source code, primarily to document how I
-# constructed the HEX lists.
+# important to include this version of the script in the source code, primarily to
+# document how I constructed the HEX lists.
 #
 # This all came up because I decided to take a close look at the HEX lists while I
 # was implementing a Java version of the bash ByteSelector function. A few things
