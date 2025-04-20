@@ -704,7 +704,7 @@ declare -A SCRIPT_STRINGS=(
 
     [DUMP.field.names]="ADDR BYTE TEXT"
     [DUMP.handler]=""
-    [DUMP.input.count]="0"
+    [DUMP.input.read]="0"
     [DUMP.input.start]="0"
     [DUMP.layout]="WIDE"
     [DUMP.layout-xxd]="WIDE"
@@ -1123,7 +1123,7 @@ declare -a SCRIPT_BYTE_MAP=()
 #
 # The values assigned to the keys defined in SCRIPT_ANSI_ESCAPE that start with
 # FOREGROUND are ANSI escape sequences that set foreground attributes, while the
-# the values assigned to the keys that start with BACKGROUND are the ANSI escape
+# the values assigned to the keys that start with BACKGROUND are the ANSI escapes
 # that set background attributes. Values are all strings that are created using
 # Bash's ANSI-C style quoting (i.e., $'string'), which automatically translates
 # each occurrence of \e into the unprintable escape character that starts every
@@ -3108,8 +3108,8 @@ Initialize5_XXD() {
     SCRIPT_XXD_OPTIONS+=("-c" "${SCRIPT_STRINGS[DUMP.record.length-xxd]}")
     SCRIPT_XXD_OPTIONS+=("-g" "${SCRIPT_STRINGS[BYTE.grouping.xxd]}")
 
-    if (( ${SCRIPT_STRINGS[DUMP.input.count]} > 0 )); then
-        SCRIPT_XXD_OPTIONS+=("-l" "${SCRIPT_STRINGS[DUMP.input.count]}")
+    if (( ${SCRIPT_STRINGS[DUMP.input.read]} > 0 )); then
+        SCRIPT_XXD_OPTIONS+=("-l" "${SCRIPT_STRINGS[DUMP.input.read]}")
     fi
 
     if (( ${SCRIPT_STRINGS[DUMP.input.start]} > 0 )); then
@@ -3773,23 +3773,21 @@ Options() {
             --narrow)
                 SCRIPT_STRINGS[DUMP.layout]="NARROW";;
 
-            --newlines=?*)
+            --read=?*)
                 if [[ $optarg =~ ^(${regex_number})$ ]]; then
-                    if (( optarg > 0 )); then
-                        #
-                        # shellcheck disable=SC2046
-                        #
-                        printf -v "SCRIPT_STRINGS[DUMP.record.separator]" '%.0s\n' $(command -p seq 1 "$optarg")
-                    else
-                        Error "argument ${optarg@Q} in option ${arg@Q} must be a positive integer"
-                    fi
+                    SCRIPT_STRINGS[DUMP.input.read]=$((BASH_REMATCH[1]))
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --read=?*)
-                if [[ $optarg =~ ^(${regex_number})$ ]]; then
-                    SCRIPT_STRINGS[DUMP.input.count]=$((BASH_REMATCH[1]))
+            --spacing=?*)
+                if [[ $optarg =~ ^(1|single|2|double|3|triple)$ ]]; then
+                    case "$optarg" in
+                        single|1) SCRIPT_STRINGS[DUMP.record.separator]=$'\n';;
+                        double|2) SCRIPT_STRINGS[DUMP.record.separator]=$'\n\n';;
+                        triple|3) SCRIPT_STRINGS[DUMP.record.separator]=$'\n\n\n';;
+                               *) InternalError "option ${arg@Q} has not been completely implemented";;
+                    esac
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
@@ -4620,11 +4618,12 @@ exit 0                  # skip everything else in this file
 #@#         from the input file, that can be displayed in a single record. Each record
 #@#         in a dump, except perhaps the last one, represents exactly <length> input
 #@#         file bytes. Each record's byte and text field components are two different
-#@#         ways that the dump can use to display those <length> input file bytes.
+#@#         ways that the dump can use to display those <length> input file bytes. As
+#@#         a convenience the --byte and --text options can also set the <length>.
 #@#
-#@#         The default <length> is 16. The maximum <length>, which is imposed by xxd,
-#@#         is 256. When <length> is 0, the entire input file is displayed in a single
-#@#         record.
+#@#         The default <length> is 16 bytes. If <length> is 0, the entire input file
+#@#         is displayed in a single record. The maximum <length>, which is imposed by
+#@#         xxd, is 256 bytes and that limit can't be modified.
 #@#
 #@#     --narrow
 #@#         Each record in the dump starts on a new line, but in this layout style
@@ -4639,14 +4638,29 @@ exit 0                  # skip everything else in this file
 #@#         in the --wide option, is used whenever the byte field or the text field
 #@#         is empty.
 #@#
-#@#     --newlines=<count>
-#@#         Use <count> newlines to separate records in the dump. <count> must be a
-#@#         positive integer. The default <count> is 1.
-#@#
 #@#     --read=<count>
 #@#         Stop the dump after reading <count> bytes from the input file. <count>
 #@#         must be a nonnegative integer and when it's 0 the entire input file is
 #@#         read. The default <count> is 0.
+#@#
+#@#    --spacing=<separation>
+#@#        The number of newlines used to separate individual records in the dump is
+#@#        specified by <separation>, which must be one of the values in the list:
+#@#
+#@#            single - use one newline separate records
+#@#                 1 - synonym for single
+#@#
+#@#            double - use two newlines to separate records
+#@#                 2 - synonym for double
+#@#
+#@#            triple - use three newlines to separate records
+#@#                 3 - synonym for triple
+#@#
+#@#        The default <separation> is single (or 1).
+#@#
+#@#        See the description of the --length option if you want to dump the entire
+#@#        input file as a single record. This option only covers the spacing between
+#@#        individual records in the dump.
 #@#
 #@#     --start=<address>
 #@#     --start=<address>:<output-address>
