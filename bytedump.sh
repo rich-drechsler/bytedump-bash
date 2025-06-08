@@ -756,7 +756,6 @@ declare -A SCRIPT_STRINGS=(
     [BYTE.digits.per.octet-xxd]=""
     [BYTE.field.separator]="  "
     [BYTE.field.separator-xxd]="  "
-    [BYTE.field.separator.size]=""
     [BYTE.field.width]=""
     [BYTE.field.width.xxd]=""
     [BYTE.grouping.xxd]=""
@@ -827,8 +826,8 @@ declare -A SCRIPT_STRINGS=(
 
     #
     # The value assigned to DEBUG.strings.prefixes are the space separated prefixes
-    # of the keys that are dumped when the --debug=strings option is used. You can
-    # change this to select the key/value pairs you're interested in.
+    # of the keys that are dumped when the --debug=strings option is used. Change
+    # it if you want to see a different collection (or order) of key/value pairs.
     #
 
     [DEBUG.strings.prefixes]="DUMP ADDR BYTE TEXT DEBUG INFO SCRIPT"
@@ -2919,7 +2918,6 @@ Initialize2_Fields() {
     SCRIPT_STRINGS[BYTE.prefix.size]="${#SCRIPT_STRINGS[BYTE.prefix]}"
     SCRIPT_STRINGS[BYTE.separator.size]="${#SCRIPT_STRINGS[BYTE.separator]}"
     SCRIPT_STRINGS[BYTE.suffix.size]="${#SCRIPT_STRINGS[BYTE.suffix]}"
-    SCRIPT_STRINGS[BYTE.field.separator.size]="${#SCRIPT_STRINGS[BYTE.field.separator]}"
 
     if [[ -z ${SCRIPT_STRINGS[BYTE.separator]} ]]; then
         SCRIPT_STRINGS[BYTE.grouping.xxd]="0"
@@ -3026,7 +3024,6 @@ Initialize4_Layout() {
         #
 
         SCRIPT_STRINGS[BYTE.field.separator]=$'\n'
-        SCRIPT_STRINGS[BYTE.field.separator.size]="${#SCRIPT_STRINGS[BYTE.field.separator]}"
 
         #
         # Figure out the number of spaces that need to be appended to the TEXT or
@@ -3929,6 +3926,7 @@ HelpScanner() {
     local help_arg
     local -a help_content
     local -A help_footnote
+    local help_indent
     local help_text
     local help_trigger
     local line
@@ -3948,6 +3946,7 @@ HelpScanner() {
     connected="TRUE"
     help_content=()
     help_footnote=()
+    help_indent=" "
     help_trigger=""
 
     while (( $# > 0 )); do
@@ -3967,6 +3966,9 @@ HelpScanner() {
 
             -copyright)
                 unset "help_footnote[Copyright]";;
+
+            -indent=*)
+                help_indent="$arg";;
 
             +license)
                 help_footnote[License]="License: None";;
@@ -3998,7 +4000,7 @@ HelpScanner() {
                 help_text="${BASH_REMATCH[1]}"
             fi
             if (( ${#help_content[@]} > 0 )) || [[ -n $help_text ]]; then
-                help_content+=("$help_text")
+                help_content+=("${help_text:+${help_indent}}${help_text}")
             fi
         elif [[ $connected == "FALSE" ]] || (( ${#help_content[@]} == 0 )); then
             #
@@ -4643,24 +4645,24 @@ exit 0                  # skip everything else in this file
 #@#         must be a nonnegative integer and when it's 0 the entire input file is
 #@#         read. The default <count> is 0.
 #@#
-#@#    --spacing=<separation>
-#@#        The number of newlines used to separate individual records in the dump is
-#@#        specified by <separation>, which must be one of the values in the list:
+#@#     --spacing=<separation>
+#@#         The number of newlines used to separate individual records in the dump is
+#@#         specified by <separation>, which must be one of the values in the list:
 #@#
-#@#            single - use one newline separate records
-#@#                 1 - synonym for single
+#@#             single - use one newline separate records
+#@#                  1 - synonym for single
 #@#
-#@#            double - use two newlines to separate records
-#@#                 2 - synonym for double
+#@#             double - use two newlines to separate records
+#@#                  2 - synonym for double
 #@#
-#@#            triple - use three newlines to separate records
-#@#                 3 - synonym for triple
+#@#             triple - use three newlines to separate records
+#@#                  3 - synonym for triple
 #@#
-#@#        The default <separation> is single (or 1).
+#@#         The default <separation> is single (or 1).
 #@#
-#@#        See the description of the --length option if you want to dump the entire
-#@#        input file as a single record. This option only covers the spacing between
-#@#        individual records in the dump.
+#@#         See the description of the --length option if you want to dump the entire
+#@#         input file as a single record. This option only covers the spacing between
+#@#         individual records in the dump.
 #@#
 #@#     --start=<address>
 #@#     --start=<address>:<output-address>
@@ -4779,7 +4781,7 @@ exit 0                  # skip everything else in this file
 #@# All background and foreground options expect to find a <selector> in their argument
 #@# that picks all the bytes targeted by that option. The <selector> consists of one or
 #@# more space separated tokens that can be integers, integer ranges, character classes,
-#@# or raw strings (that use a slightly modifed notation borrowed from Rust).
+#@# or raw strings (that use a slightly modified notation borrowed from Rust).
 #@#
 #@# A <selector> that starts with an optional base prefix and is followed by tokens that
 #@# are completely enclosed in a single set of parentheses picks the base that's used to
@@ -4863,14 +4865,14 @@ exit 0                  # skip everything else in this file
 #@# =========
 #@#
 #@# Even though the program's debugging support is officially undocumented, there are
-#@# a few debug options that users might occasionally be interested in. The three that
+#@# a few debug options that users might occasionally be interested in. The four that
 #@# stand out can be added individually
 #@#
-#@#     bytedump --debug=xxd --debug=bytemap --debug=textmap ...
+#@#     bytedump --debug=xxd --debug=strings --debug=bytemap --debug=textmap ...
 #@#
 #@# or in a comma separated list
 #@#
-#@#     bytedump --debug=xxd,bytemap,textmap ...
+#@#     bytedump --debug=xxd,strings,bytemap,textmap ...
 #@#
 #@# to any of the example command lines in the next section. Debugging output goes to
 #@# standard error, so it can easily be separated from the generated dump. Organization
@@ -4896,7 +4898,7 @@ exit 0                  # skip everything else in this file
 #@#
 #@#     bytedump --addr=hex:08 file
 #@#
-#@# you get a dump that exactly matches the output that
+#@# you get a dump that should exactly match the output that
 #@#
 #@#     xxd -c16 -g1 file
 #@#
