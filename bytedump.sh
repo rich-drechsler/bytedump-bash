@@ -691,6 +691,9 @@ declare -A SCRIPT_STRINGS=(
     # Script related strings.
     #
 
+    [SCRIPT.version]="0.9"
+    [SCRIPT.description]="Bash bytedump script"
+    [SCRIPT.license]="MIT License (https://opensource.org/license/mit/)"
     [SCRIPT.usage]="Usage: ${BASH_SOURCE[0]:-bytedump} [OPTIONS] [FILE|-]"
     [SCRIPT.help.trigger]="#@#"
 
@@ -2608,8 +2611,6 @@ Help() {
     elif [[ -n ${SCRIPT_STRINGS[SCRIPT.usage]} ]]; then
         printf "%s\n" "${SCRIPT_STRINGS[SCRIPT.usage]}"
     fi
-
-    exit 0              # always quit
 }
 
 Initialize() {
@@ -3496,6 +3497,7 @@ Options() {
     local arg
     local argc
     local attribute
+    local field
     local length
     local optarg
     local regex_number
@@ -3521,6 +3523,12 @@ Options() {
     #     https://mywiki.wooledge.org/BashFAQ/035
     #
     # if you want more information about option handling in bash scripts.
+    #
+    # NOTE - older implementations of this function relied on pattern matching in
+    # the case statement, but it's not a technique that's available in languages,
+    # like Java or C, that support switch statements. I decided to rewrite parts
+    # of this function while I was working on the Java version, primarily to help
+    # align the implementations in the two languages.
     #
     # NOTE - there are a few variables that look like they could be declared as
     # integers (e.g., length, width). However, in those cases we need to be able
@@ -3560,14 +3568,31 @@ Options() {
     regex_separator='[[:blank:]]*[:][[:blank:]]*'
 
     while (( $# > 0 )); do
+        #
+        # Recent changes in this loop were made to help align the big case statement
+        # with the switch statement that's used by the Java implementation. Special
+        # pattern matching characters are no longer used in the case statement, so
+        # parsing of each argument involves a little extra work.
+        #
         arg="$1"
-        if [[ $arg =~ ^--([^=]+)[=](.+)$ ]]; then
+        if [[ $arg =~ ^(--[^=-][^=]*=)(.*)$ ]]; then
+            target="${BASH_REMATCH[1]}"
             optarg="${BASH_REMATCH[2]}"
+        elif [[ $arg =~ ^(--[^=-][^=]*)$ ]]; then
+            target="${BASH_REMATCH[1]}"
+            optarg=""
         else
+            target=$arg
             optarg=""
         fi
-        case "$arg" in
-            --addr=?*)
+
+        #
+        # Removed special pattern matching characters in this case statement, mostly
+        # to help align what's done here with the Java implementation. Notice that
+        # $target (rather than $arg) is now used in the case statement.
+        #
+        case "$target" in
+            --addr=)
                 if [[ $optarg =~ ^(decimal|empty|hex|HEX|octal|xxd)(${regex_separator}([0]?[123456789][0123456789]*))?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     width="${BASH_REMATCH[3]}"
@@ -3593,21 +3618,21 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --addr-prefix=*)
+            --addr-prefix=)
                 if [[ $optarg =~ ^([[:print:]])*$ ]]; then
                     SCRIPT_STRINGS[ADDR.prefix]="$optarg"
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
                 fi;;
 
-            --addr-suffix=*)
+            --addr-suffix=)
                 if [[ $optarg =~ ^([[:print:]])*$ ]]; then
                     SCRIPT_STRINGS[ADDR.suffix]="$optarg"
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
                 fi;;
 
-            --background=?*)
+            --background=)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
@@ -3625,7 +3650,7 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --byte=?*)
+            --byte=)
                 if [[ $optarg =~ ^(binary|decimal|empty|hex|HEX|octal|xxd)(${regex_separator}(${regex_number}))?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     length="${BASH_REMATCH[3]}"
@@ -3646,7 +3671,7 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --byte-background=?*)
+            --byte-background=)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
@@ -3659,7 +3684,7 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --byte-foreground=?*)
+            --byte-foreground=)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
@@ -3672,21 +3697,21 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --byte-prefix=*)
+            --byte-prefix=)
                 if [[ $optarg =~ ^([[:print:]])*$ ]]; then
                     SCRIPT_STRINGS[BYTE.prefix]="$optarg"
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
                 fi;;
 
-            --byte-separator=*)
+            --byte-separator=)
                 if [[ $optarg =~ ^([[:print:]])*$ ]]; then
                     SCRIPT_STRINGS[BYTE.separator]="$optarg"
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
                 fi;;
 
-            --byte-suffix=*)
+            --byte-suffix=)
                 if [[ $optarg =~ ^([[:print:]])*$ ]]; then
                     SCRIPT_STRINGS[BYTE.suffix]="$optarg"
                 else
@@ -3699,13 +3724,13 @@ Options() {
             # options in comments may not be accurate.
             #
 
-            --debug=?*)
+            --debug=)
                 #
                 # The expansion of optarg in the for loop replaces each comma with
                 # a space.
                 #
-                for target in ${optarg//,/ }; do
-                    case "$target" in
+                for field in ${optarg//,/ }; do
+                    case "$field" in
                           attributes) SCRIPT_STRINGS[DEBUG.attributes]="TRUE";;
                           background) SCRIPT_STRINGS[DEBUG.background]="TRUE";;
                              bytemap) SCRIPT_STRINGS[DEBUG.bytemap]="TRUE";;
@@ -3718,11 +3743,11 @@ Options() {
                                 time) SCRIPT_STRINGS[DEBUG.time]="TRUE";;
                           unexpanded) SCRIPT_STRINGS[DEBUG.unexpanded]="TRUE";;
                                  xxd) SCRIPT_STRINGS[DEBUG.xxd]="TRUE";;
-                                   *) Error "target ${target@Q} in option ${arg@Q} is not recognized";;
+                                   *) Error "field ${field@Q} in option ${arg@Q} is not recognized";;
                     esac
                 done;;
 
-            --debug-dump=?*)            # pick the dump handler
+            --debug-dump=)              # pick the dump handler
                 case "$optarg" in
                     internal) SCRIPT_STRINGS[DEBUG.dump]="$optarg";;
                     selected) SCRIPT_STRINGS[DEBUG.dump]="$optarg";;
@@ -3730,7 +3755,7 @@ Options() {
                            *) Error "argument ${optarg@Q} in option ${arg@Q} is not recognized";;
                 esac;;
 
-            --debug-token=?*)           # to trigger custom debugging code
+            --debug-token=)             # to trigger custom debugging code
                 #
                 # Expects code to be added somewhere in script that uses a regular
                 # expression to test if the argument (bracketed by '[' and ']') is
@@ -3739,7 +3764,7 @@ Options() {
                 #
                 SCRIPT_STRINGS[DEBUG.token]+="[${optarg}]";;
 
-            --foreground=?*)
+            --foreground=)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
@@ -3758,26 +3783,31 @@ Options() {
                 fi;;
 
             --help|-[?])
-                Help;;
+                Help
+                exit 0;;
 
-            --length=?*)
+            --length=)
                 if [[ $optarg =~ ^(${regex_number})$ ]]; then
                     SCRIPT_STRINGS[DUMP.record.length]=$((BASH_REMATCH[1]))
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
+            --license)
+                printf "%s\n" "${SCRIPT_STRINGS[SCRIPT.license]}"
+                exit 0;;
+
             --narrow)
                 SCRIPT_STRINGS[DUMP.layout]="NARROW";;
 
-            --read=?*)
+            --read=)
                 if [[ $optarg =~ ^(${regex_number})$ ]]; then
                     SCRIPT_STRINGS[DUMP.input.read]=$((BASH_REMATCH[1]))
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --spacing=?*)
+            --spacing=)
                 if [[ $optarg =~ ^(1|single|2|double|3|triple)$ ]]; then
                     case "$optarg" in
                         single|1) SCRIPT_STRINGS[DUMP.record.separator]=$'\n';;
@@ -3789,7 +3819,7 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --start=?*)
+            --start=)
                 if [[ $optarg =~ ^(${regex_number})(${regex_separator}(${regex_number}))?$ ]]; then
                     SCRIPT_STRINGS[DUMP.input.start]="$((BASH_REMATCH[1]))"
                     SCRIPT_STRINGS[DUMP.output.start]="$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))"
@@ -3797,7 +3827,7 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --text=?*)
+            --text=)
                 if [[ $optarg =~ ^(ascii|caret|empty|escape|unicode|xxd)(${regex_separator}(${regex_number}))?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     length="${BASH_REMATCH[3]}"
@@ -3817,7 +3847,7 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --text-background=?*)
+            --text-background=)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
@@ -3834,7 +3864,7 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --text-foreground=?*)
+            --text-foreground=)
                 if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
@@ -3850,19 +3880,23 @@ Options() {
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
-            --text-prefix=*)
+            --text-prefix=)
                 if [[ $optarg =~ ^([[:print:]])*$ ]]; then
                     SCRIPT_STRINGS[TEXT.prefix]="$optarg"
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
                 fi;;
 
-            --text-suffix=*)
+            --text-suffix=)
                 if [[ $optarg =~ ^([[:print:]])*$ ]]; then
                     SCRIPT_STRINGS[TEXT.suffix]="$optarg"
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
                 fi;;
+
+            --version)
+                printf "%s\n" "${SCRIPT_STRINGS[SCRIPT.version]}"
+                exit 0;;
 
             --wide)
                 SCRIPT_STRINGS[DUMP.layout]="${SCRIPT_STRINGS[DUMP.layout-xxd]}";;
@@ -4627,6 +4661,9 @@ exit 0                  # skip everything else in this file
 #@#         is displayed in a single record. The maximum <length>, which is imposed by
 #@#         xxd, is 256 bytes and that limit can't be modified.
 #@#
+#@#     --license
+#@#         Print licensing information on standard output and then exit.
+#@#
 #@#     --narrow
 #@#         Each record in the dump starts on a new line, but in this layout style
 #@#         only the address and byte fields are printed next to each other on that
@@ -4765,6 +4802,9 @@ exit 0                  # skip everything else in this file
 #@#         Append <string> to the text field in every record that's included in the
 #@#         dump. All characters in <string> must be printable or the <string> can be
 #@#         empty. The default suffix is the empty string.
+#@#
+#@#     --version
+#@#         Print version information on standard output and then exit.
 #@#
 #@#     --wide
 #@#         Each record in a dump always starts on a new line and in this layout the
