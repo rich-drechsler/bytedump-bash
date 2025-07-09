@@ -18,50 +18,36 @@
 ## may have to deal with something similar whenever you edit makefiles.
 ##
 
+####################
 #
-# ROOT should point back at the repository's top directory. It's not currently used,
-# but may be in the future.
+# Setup
 #
+####################
 
-ROOT := ..
+ROOT := ..					# repository root - currently unused
+MAKEFILE := $(lastword $(MAKEFILE_LIST))	# name of this makefile
 
-#
-# This makefile probably should be listed as a prerequisite in some of the rules, so
-# we use GNU make's lastword function to grab its name. The technique is documented
-# in an example in the GNU make manual, but it only works when the lastword function
-# is called before any other makefile is included.
-#
-# NOTE - always assuming that name is Makefile is not unreasonable, but I wanted to
-# show you what's suggested in the manual.
-#
+.DELETE_ON_ERROR :				# delete targets on build errors
 
-MAKEFILE := $(lastword $(MAKEFILE_LIST))
-
+####################
 #
-# The .DELETE_ON_ERROR target, if it's defined anywhere in the makefile, tells make
-# to delete the target it's building if there's an error in the recipe that's being
-# used. You might think this is GNU make's default behavior, but unfortunately it's
-# not, so we force it.
+# Variables
 #
-# NOTE - targets like this one that start with a period don't count when make looks
-# for the target to use as its "default goal", which is the target that make builds
-# when there aren't any targets mentioned on the command line.
-#
-
-.DELETE_ON_ERROR :
-
-#
-# Bash bytedump specific definitions and rules.
-#
+####################
 
 BYTEDUMP := bytedump
-CHARCLASS := charclass
 SORTED_BYTES := sorted_bytes
+
+####################
+#
+# Rules
+#
+####################
 
 all : $(BYTEDUMP)
 
 clean :
-	rm -f $(SORTED_BYTES) $(CHARCLASS)
+	rm -f $(SORTED_BYTES)
 
 clobber : clean
 	rm -f $(BYTEDUMP)
@@ -76,16 +62,6 @@ clobber : clean
 #
 # or use any other bytedump options, and you should get a predictable dump that
 # includes each possible byte exactly once.
-#
-# NOTE - this makefile currently uses make's default shell, and that undoubtedly
-# means using /bin/echo (rather than the default shell's echo builtin) to handle
-# hex expansions. A different approach would be to force bash on make by adding
-#
-#     SHELL = /bin/bash
-#
-# to the start of this file. After that, bash's brace expansion and its echo or
-# printf builtins could be used to build the file. Even though using the default
-# shell makes things a bit more complicated, I thought it might be instructive.
 #
 
 $(SORTED_BYTES) : $(MAKEFILE)

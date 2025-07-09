@@ -823,7 +823,6 @@ declare -A SCRIPT_STRINGS=(
     [DEBUG.textmap]="FALSE"
     [DEBUG.textmap-bash]="FALSE"
     [DEBUG.time]="FALSE"
-    [DEBUG.token]=""
     [DEBUG.unexpanded]="FALSE"
     [DEBUG.xxd]="FALSE"
 
@@ -1636,16 +1635,6 @@ ByteSelector() {
     # in LC_ALL. Needs more testing, but seems to handle recursion and restoration
     # of LC_ALL properly.
     #
-    # NOTE - there appear to be different opinions about several of the HEX lists
-    # that are used to implement "character classes" in the recursive ByteSelector
-    # calls in this function. ChatGPT, when asked carefully about those HEX lists,
-    # seems to think "[:lower:]", "[:upper:]", and "[:punct:]" aren't all correct.
-    # However, I've now included a short bash script (named charclass) that can be
-    # used to build those HEX lists by using the POSIX character classes that are
-    # available in bash regular expressions, and in all cases the output of that
-    # script agrees with the HEX lists that are hardcoded in this function. It's
-    # definitely not urgent, but eventually deserves a closer look.
-    #
 
     selector_lc_all="$LC_ALL"
     LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
@@ -1775,31 +1764,24 @@ ByteSelector() {
                     selector_class="${BASH_REMATCH[1]}"
                     selector_input="${selector_input:${#BASH_REMATCH[0]}}"
 
-                    #
-                    # The case statement recognizes the 12 character class names defined in
-                    # the POSIX standard, plus 3 custom character class names that seem like
-                    # a convenient way to select familiar (or otherwise obvious) contiguous
-                    # blocks of bytes.
-                    #
-                    # NOTE - ChatGPT seems to think HEX lists used to implement the "lower",
-                    # "upper", and "punct" character classes aren't completely correct. Take
-                    # a look at the charclass.sh script that's now included in the source
-                    # code package for more details.
-                    #
                     case "$selector_class" in
                         #
-                        # POSIX character class names.
+                        # POSIX character class names - these hex mappings were all generated
+                        # by the Java version of this bash script. Use bash regular expressions
+                        # to build the mappings and you'll probably notice small differences in
+                        # a few character classes (e.g., [:space:] or [:punct:]). I decided to
+                        # go with Java's output.
                         #
                          "alnum") ByteSelector "$selector_attribute" "0x(30-39 41-5A 61-7A AA B5 BA C0-D6 D8-F6 F8-FF)" "$selector_output_name";;
                          "alpha") ByteSelector "$selector_attribute" "0x(41-5A 61-7A AA B5 BA C0-D6 D8-F6 F8-FF)" "$selector_output_name";;
-                         "blank") ByteSelector "$selector_attribute" "0x(09 20)" "$selector_output_name";;
+                         "blank") ByteSelector "$selector_attribute" "0x(09 20 A0)" "$selector_output_name";;
                          "cntrl") ByteSelector "$selector_attribute" "0x(00-1F 7F-9F)" "$selector_output_name";;
                          "digit") ByteSelector "$selector_attribute" "0x(30-39)" "$selector_output_name";;
-                         "graph") ByteSelector "$selector_attribute" "0x(21-7E A0-FF)" "$selector_output_name";;
+                         "graph") ByteSelector "$selector_attribute" "0x(21-7E A1-FF)" "$selector_output_name";;
                          "lower") ByteSelector "$selector_attribute" "0x(61-7A AA B5 BA DF-F6 F8-FF)" "$selector_output_name";;
                          "print") ByteSelector "$selector_attribute" "0x(20-7E A0-FF)" "$selector_output_name";;
-                         "punct") ByteSelector "$selector_attribute" "0x(21-2F 3A-40 5B-60 7B-7E A0-A9 AB-B4 B6-B9 BB-BF D7 F7)" "$selector_output_name";;
-                         "space") ByteSelector "$selector_attribute" "0x(09-0D 20)" "$selector_output_name";;
+                         "punct") ByteSelector "$selector_attribute" "0x(21-23 25-2A 2C-2F 3A-3B 3F-40 5B-5D 5F 7B 7D A1 A7 AB B6-B7 BB BF)" "$selector_output_name";;
+                         "space") ByteSelector "$selector_attribute" "0x(09-0D 20 85 A0)" "$selector_output_name";;
                          "upper") ByteSelector "$selector_attribute" "0x(41-5A C0-D6 D8-DE)" "$selector_output_name";;
                         "xdigit") ByteSelector "$selector_attribute" "0x(30-39 41-46 61-66)" "$selector_output_name";;
 
@@ -3500,9 +3482,8 @@ Options() {
     local field
     local length
     local optarg
-    local regex_number
-    local regex_separator
     local selector
+    local spacing
     local style
     local target
     local width
@@ -3526,9 +3507,10 @@ Options() {
     #
     # NOTE - older implementations of this function relied on pattern matching in
     # the case statement, but it's not a technique that's available in languages,
-    # like Java or C, that support switch statements. I decided to rewrite parts
-    # of this function while I was working on the Java version, primarily to help
-    # align the implementations in the two languages.
+    # like Java or C, that support switch statements. Splitting each command line
+    # argument into parts with regular expressions (and using those parts in the
+    # case statement) eliminated the need for pattern matching, and that really
+    # did help align the option processing code in the Java and bash versions.
     #
     # NOTE - there are a few variables that look like they could be declared as
     # integers (e.g., length, width). However, in those cases we need to be able
@@ -3551,28 +3533,13 @@ Options() {
 
     argc="$#"
 
-    #
-    # A few definitions of simple regular expression definitions that are used to
-    # parse option arguments. Decided not to use the [:digit:] character class or
-    # ranges, like [0-9], in the regex_number definition, even though either one
-    # should work because at this point we're supposed to be using the C locale.
-    #
-    # NOTE - don't use parentheses for grouping in any of these definitions. The
-    # code that uses them assumes bash's BASH_REMATCH array is filled with tokens
-    # that are extracted from an option's argument after bash matches the regular
-    # expression that's used to validate the argument. Parentheses that are used
-    # in these definitions will break some of the indexing into BASH_REMATCH.
-    #
-
-    regex_number='[123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*'
-    regex_separator='[[:blank:]]*[:][[:blank:]]*'
-
     while (( $# > 0 )); do
         #
-        # Recent changes in this loop were made to help align the big case statement
-        # with the switch statement that's used by the Java implementation. Special
-        # pattern matching characters are no longer used in the case statement, so
-        # parsing of each argument involves a little extra work.
+        # The Java and bash implementation versions of this function use identical
+        # regular expressions to split each command line argument into well defined
+        # parts. Doing it this way means the case statement doesn't have to rely on
+        # pattern matching, and that helps align the option processing code in the
+        # two implementations.
         #
         arg="$1"
         if [[ $arg =~ ^(--[^=-][^=]*=)(.*)$ ]]; then
@@ -3582,18 +3549,17 @@ Options() {
             target="${BASH_REMATCH[1]}"
             optarg=""
         else
-            target=$arg
+            target="$arg"
             optarg=""
         fi
 
         #
-        # Removed special pattern matching characters in this case statement, mostly
-        # to help align what's done here with the Java implementation. Notice that
-        # $target (rather than $arg) is now used in the case statement.
+        # No longer using pattern matching in this case statement. Notice that $target
+        # (rather than $arg) is now used in the case statement.
         #
         case "$target" in
             --addr=)
-                if [[ $optarg =~ ^(decimal|empty|hex|HEX|octal|xxd)(${regex_separator}([0]?[123456789][0123456789]*))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*(decimal|empty|hex|HEX|octal|xxd)[[:blank:]]*([:][[:blank:]]*([0]?[123456789][0123456789]*)[[:blank:]]*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     width="${BASH_REMATCH[3]}"
                     case "$style" in
@@ -3633,7 +3599,7 @@ Options() {
                 fi;;
 
             --background=)
-                if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)([[:blank:]]*[:][[:blank:]]*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
@@ -3651,7 +3617,7 @@ Options() {
                 fi;;
 
             --byte=)
-                if [[ $optarg =~ ^(binary|decimal|empty|hex|HEX|octal|xxd)(${regex_separator}(${regex_number}))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*(binary|decimal|empty|hex|HEX|octal|xxd)[[:blank:]]*([:][[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     length="${BASH_REMATCH[3]}"
                     case "$style" in
@@ -3672,7 +3638,7 @@ Options() {
                 fi;;
 
             --byte-background=)
-                if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
@@ -3685,7 +3651,7 @@ Options() {
                 fi;;
 
             --byte-foreground=)
-                if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
@@ -3755,17 +3721,8 @@ Options() {
                            *) Error "argument ${optarg@Q} in option ${arg@Q} is not recognized";;
                 esac;;
 
-            --debug-token=)             # to trigger custom debugging code
-                #
-                # Expects code to be added somewhere in script that uses a regular
-                # expression to test if the argument (bracketed by '[' and ']') is
-                # currently in the string assigned to SCRIPT_STRINGS[DEBUG.token].
-                # If so, your custom debugging code could be executed.
-                #
-                SCRIPT_STRINGS[DEBUG.token]+="[${optarg}]";;
-
             --foreground=)
-                if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
@@ -3787,7 +3744,7 @@ Options() {
                 exit 0;;
 
             --length=)
-                if [[ $optarg =~ ^(${regex_number})$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*$ ]]; then
                     SCRIPT_STRINGS[DUMP.record.length]=$((BASH_REMATCH[1]))
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
@@ -3801,15 +3758,16 @@ Options() {
                 SCRIPT_STRINGS[DUMP.layout]="NARROW";;
 
             --read=)
-                if [[ $optarg =~ ^(${regex_number})$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*$ ]]; then
                     SCRIPT_STRINGS[DUMP.input.read]=$((BASH_REMATCH[1]))
                 else
                     Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
                 fi;;
 
             --spacing=)
-                if [[ $optarg =~ ^(1|single|2|double|3|triple)$ ]]; then
-                    case "$optarg" in
+                if [[ $optarg =~ ^[[:blank:]]*(1|single|2|double|3|triple)[[:blank:]]*$ ]]; then
+                    spacing="${BASH_REMATCH[1]}"
+                    case "$spacing" in
                         single|1) SCRIPT_STRINGS[DUMP.record.separator]=$'\n';;
                         double|2) SCRIPT_STRINGS[DUMP.record.separator]=$'\n\n';;
                         triple|3) SCRIPT_STRINGS[DUMP.record.separator]=$'\n\n\n';;
@@ -3820,7 +3778,7 @@ Options() {
                 fi;;
 
             --start=)
-                if [[ $optarg =~ ^(${regex_number})(${regex_separator}(${regex_number}))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*([:][[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*)?$ ]]; then
                     SCRIPT_STRINGS[DUMP.input.start]="$((BASH_REMATCH[1]))"
                     SCRIPT_STRINGS[DUMP.output.start]="$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))"
                 else
@@ -3828,7 +3786,7 @@ Options() {
                 fi;;
 
             --text=)
-                if [[ $optarg =~ ^(ascii|caret|empty|escape|unicode|xxd)(${regex_separator}(${regex_number}))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*(ascii|caret|empty|escape|unicode|xxd)[[:blank:]]*([:][[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     length="${BASH_REMATCH[3]}"
                     case "$style" in
@@ -3848,7 +3806,7 @@ Options() {
                 fi;;
 
             --text-background=)
-                if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
@@ -3865,7 +3823,7 @@ Options() {
                 fi;;
 
             --text-foreground=)
-                if [[ $optarg =~ ^([[:alpha:]]+([-][[:alpha:]]+)*)(${regex_separator}(.*))?$ ]]; then
+                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
                     selector="${BASH_REMATCH[4]}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
@@ -4873,9 +4831,9 @@ exit 0                  # skip everything else in this file
 #@#     Raw String
 #@#         A modified version of Rust's raw string literal can be used as a token in a
 #@#         <selector>. They start with a prefix that's the letter 'r', zero or more '#'
-#@#         characters, and a single or double quote, and always end with a suffix that
-#@#         matches the quote and the number of '#' characters used in the prefix. For
-#@#         example,
+#@#         characters, and a single or double quote, and they always end with a suffix
+#@#         that matches the quote and the number of '#' characters used in the prefix.
+#@#         For example,
 #@#
 #@#               r"aeiouAEIOU"
 #@#               r'aeiouAEIOU'
@@ -4886,6 +4844,11 @@ exit 0                  # skip everything else in this file
 #@#         character, except null, can appear in a raw string. The selected bytes are
 #@#         the Unicode code points of the characters in the string that are less than
 #@#         256.
+#@#
+#@#         Two quoting styles are supported because those quote delimiters have to be
+#@#         protected from your shell on the command line. It's an approach that gives
+#@#         you some flexibility when you use these tokens.
+#@#
 #@#
 #@# A <selector> can contain one or more of these tokens, so that means there are lots
 #@# of equivalent ways to select bytes. For example, the command line options
