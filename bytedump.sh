@@ -155,6 +155,9 @@
 #
 #       and search twice and you'll find Main's definition and its call.
 #
+#   Helper Functions
+#       Simple functions that might be useful anywhere the script.
+#
 #   Exportable Code
 #       Anything initially written for this script that looks like it might be
 #       useful in other programs follows the script's last function definition.
@@ -1373,13 +1376,13 @@ Arguments() {
                     Dump "${1:--}"
                 fi
             else
-                Error "argument ${1@Q} is a directory"
+                Error "argument $(Delimit "$1") is a directory"
             fi
         else
-            Error "argument ${1@Q} isn't a readable file"
+            Error "argument $(Delimit "$1") isn't a readable file"
         fi
     else
-        Error "too many non-option command line arguments ${*@Q}"
+        Error "too many non-option command line arguments $(Delimit "${*}")"
     fi
 }
 
@@ -1484,7 +1487,7 @@ ByteMapper() {
         mapper_output=""
         case "${mapper_base^^}" in
             BINARY)
-                if [[ $mapper_bytes =~ ^[[:blank:]]*([01]{8})[[:blank:]]* ]]; then
+                if [[ $mapper_bytes =~ ^[$' \t']*([01]{8})[$' \t']* ]]; then
                     #
                     # Unrolled first loop interation because it's the only one
                     # that doesn't use $mapper_separator.
@@ -1492,7 +1495,7 @@ ByteMapper() {
                     mapper_index="2#${BASH_REMATCH[1]}"         # bash base conversion
                     mapper_output="${mapper_map[$mapper_index]}"
                     mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
-                    while [[ $mapper_bytes =~ ^([01]{8})[[:blank:]]* ]]; do
+                    while [[ $mapper_bytes =~ ^([01]{8})[$' \t']* ]]; do
                         mapper_index="2#${BASH_REMATCH[1]}"
                         mapper_output+="${mapper_separator}${mapper_map[$mapper_index]}"
                         mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
@@ -1500,7 +1503,7 @@ ByteMapper() {
                 fi;;
 
             HEX-LOWER|HEX-UPPER)
-                if [[ $mapper_bytes =~ ^[[:blank:]]*([[:xdigit:]]{2})[[:blank:]]* ]]; then
+                if [[ $mapper_bytes =~ ^[$' \t']*([0123456789abcdefABCDEF]{2})[$' \t']* ]]; then
                     #
                     # Unrolled first loop interation because it's the only one
                     # that doesn't use $mapper_separator.
@@ -1508,19 +1511,19 @@ ByteMapper() {
                     mapper_index="16#${BASH_REMATCH[1]}"        # bash base conversion
                     mapper_output="${mapper_map[$mapper_index]}"
                     mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
-                    while [[ $mapper_bytes =~ ^([[:xdigit:]]{2})[[:blank:]]* ]]; do
+                    while [[ $mapper_bytes =~ ^([0123456789abcdefABCDEF]{2})[$' \t']* ]]; do
                         mapper_index="16#${BASH_REMATCH[1]}"
                         mapper_output+="${mapper_separator}${mapper_map[$mapper_index]}"
                         mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
                     done
                 fi;;
 
-             *) InternalError "base ${mapper_base@Q} has not been implemented";;
+             *) InternalError "base $(Delimit "${mapper_base}") has not been implemented";;
         esac
         if [[ -z $mapper_bytes ]]; then
             mapper_status="0"
         else
-            InternalError "parsing input argument ${1@Q} failed at ${mapper_bytes@Q}"
+            InternalError "parsing input argument $(Delimit "$1") failed at $(Delimit "${mapper_bytes}")"
         fi
     fi
 
@@ -1628,12 +1631,11 @@ ByteSelector() {
     # However, unlike ByteMapper, this function isn't used much and doesn't have
     # to deal with binary numbers, so printf would be an easy alternative.
     #
-    # NOTE - recent locale related change (that hasn't been well tested but seems
-    # to work) immediately saves the value assigned to LC_ALL and then switches to
-    # the user's locale. Selections are all made using that locale and right before
-    # returning the value of LC_ALL saved when the function started is stored back
-    # in LC_ALL. Needs more testing, but seems to handle recursion and restoration
-    # of LC_ALL properly.
+    # NOTE - this entire function now runs in the user's locale, so we have to be
+    # cautious using character classes and ranges in regular expressions. I'm also
+    # working on a Java version of this program, and decided to make a few changes
+    # to some of the regular expressions used in this function. Hopefully I didn't
+    # break anything.
     #
 
     selector_lc_all="$LC_ALL"
@@ -1650,7 +1652,7 @@ ByteSelector() {
     # First check for the optional base prefix.
     #
 
-    if [[ $selector_input =~ ^[[:blank:]]*(0[xX]?)?"("(.*)")"[[:blank:]]*$ ]]; then
+    if [[ $selector_input =~ ^[$' \t']*(0[xX]?)?"("(.*)")"[$' \t']*$ ]]; then
         #
         # Selector string starts with an optional base prefix and is followed by
         # tokens that are completely enclosed in a single set of parentheses, so
@@ -1663,14 +1665,14 @@ ByteSelector() {
             0[xX]) selector_base="16";;
                 0) selector_base="8";;
                "") selector_base="10";;
-                *) InternalError "parser prefix ${selector_prefix@Q} has not been implemented";;
+                *) InternalError "selector base prefix $(Delimit "${selector_prefix}") has not been implemented";;
         esac
     fi
 
     if [[ $selector_output_name =~ ^SCRIPT_ATTRIBUTES_(BYTE|TEXT)_(BACKGROUND|FOREGROUND)$ ]]; then
         selector_output="$selector_output_name"     # create the output nameref
 
-        while [[ $selector_input =~ ^[[:blank:]]*([^[:blank:]].*) ]]; do
+        while [[ $selector_input =~ ^[$' \t']*([^$' \t'].*) ]]; do
             #
             # Omitting leading blanks here means the regular expressions that do the
             # real work don't have to worry about them. Decided to save a copy of the
@@ -1684,7 +1686,7 @@ ByteSelector() {
             # Implemented tokens can be identified by looking at how they start. It's
             # an approach that also improves error messages when we notice mistakes.
             #
-            if [[ $selector_input =~ ^(0[xX]?)?[[:xdigit:]] ]]; then
+            if [[ $selector_input =~ ^(0[xX]?)?[0123456789abcdefABCDEF] ]]; then
                 #
                 # Next token looks like an integer or integer range. All "numbers" are
                 # carefully checked before we ask bash to do anything significant with
@@ -1696,31 +1698,31 @@ ByteSelector() {
                     # and the digits in every integer must all be valid in that base.
                     #
                     if [[ $selector_base == "16" ]]; then
-                        if [[ $selector_input =~ ^(([[:xdigit:]]+)([-]([[:xdigit:]]+))?)([[:blank:]]+|$) ]]; then
+                        if [[ $selector_input =~ ^(([0123456789abcdefABCDEF]+)([-]([0123456789abcdefABCDEF]+))?)([$' \t']+|$) ]]; then
                             selector_first="16#${BASH_REMATCH[2]}"
                             selector_last="16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                             selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                         else
-                            Error "problem extracting a hex integer from ${selector_input_start@Q}"
+                            Error "problem extracting a hex integer from $(Delimit "${selector_input_start}")"
                         fi
                     elif [[ $selector_base == "8" ]]; then
-                        if [[ $selector_input =~ ^(([01234567]+)([-]([01234567]+))?)([[:blank:]]+|$) ]]; then
+                        if [[ $selector_input =~ ^(([01234567]+)([-]([01234567]+))?)([$' \t']+|$) ]]; then
                             selector_first="8#${BASH_REMATCH[2]}"
                             selector_last="8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                             selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                         else
-                            Error "problem extracting an octal integer from ${selector_input_start@Q}"
+                            Error "problem extracting an octal integer from $(Delimit "${selector_input_start}")"
                         fi
                     elif [[ $selector_base == "10" ]]; then
-                        if [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([[:blank:]]+|$) ]]; then
+                        if [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([$' \t']+|$) ]]; then
                             selector_first="${BASH_REMATCH[2]}"
                             selector_last="${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                             selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                         else
-                            Error "problem extracting a decimal integer from ${selector_input_start@Q}"
+                            Error "problem extracting a decimal integer from $(Delimit "${selector_input_start}")"
                         fi
                     else
-                        InternalError "base ${selector_base@Q} has not been implemented"
+                        InternalError "base $(Delimit "${selector_base}") has not been implemented"
                     fi
                 else
                     #
@@ -1728,20 +1730,20 @@ ByteSelector() {
                     # use C-style literal notation to specify the base. Both ends of an
                     # integer range must be expressed in the same base.
                     #
-                    if [[ $selector_input =~ ^(0[xX]([[:xdigit:]]+)([-]0[xX]([[:xdigit:]]+))?)([[:blank:]]+|$) ]]; then
+                    if [[ $selector_input =~ ^(0[xX]([0123456789abcdefABCDEF]+)([-]0[xX]([0123456789abcdefABCDEF]+))?)([$' \t']+|$) ]]; then
                         selector_first="16#${BASH_REMATCH[2]}"
                         selector_last="16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                         selector_input="${selector_input:${#BASH_REMATCH[0]}}"
-                    elif [[ $selector_input =~ ^((0[01234567]*)([-](0[01234567]*))?)([[:blank:]]+|$) ]]; then
+                    elif [[ $selector_input =~ ^((0[01234567]*)([-](0[01234567]*))?)([$' \t']+|$) ]]; then
                         selector_first="8#${BASH_REMATCH[2]}"
                         selector_last="8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                         selector_input="${selector_input:${#BASH_REMATCH[0]}}"
-                    elif [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([[:blank:]]+|$) ]]; then
+                    elif [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([$' \t']+|$) ]]; then
                         selector_first="${BASH_REMATCH[2]}"
                         selector_last="${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                         selector_input="${selector_input:${#BASH_REMATCH[0]}}"
                     else
-                        Error "problem extracting an integer from ${selector_input_start@Q}"
+                        Error "problem extracting an integer from $(Delimit "${selector_input_start}")"
                     fi
                 fi
 
@@ -1755,12 +1757,11 @@ ByteSelector() {
                 fi
             elif [[ $selector_input =~ ^"[:" ]]; then
                 #
-                # Next token looks like a "character class". All the names must be
-                # alphanumeric and bracketed by "[:" and ":]". They'll also have to
-                # be recognized in the case statement, so they're basically checked
-                # twice.
+                # The next token looks like a selector "character class". Using bash's
+                # [:alnum:] character class is fine here - whatever matches is checked
+                # again in the case statement.
                 #
-                if [[ $selector_input =~ ^"[:"([[:alnum:]]+)":]"([[:blank:]]+|$) ]]; then
+                if [[ $selector_input =~ ^"[:"([[:alnum:]]+)":]"([$' \t']+|$) ]]; then
                     selector_class="${BASH_REMATCH[1]}"
                     selector_input="${selector_input:${#BASH_REMATCH[0]}}"
 
@@ -1770,7 +1771,7 @@ ByteSelector() {
                         # by the Java version of this bash script. Use bash regular expressions
                         # to build the mappings and you'll probably notice small differences in
                         # a few character classes (e.g., [:space:] or [:punct:]). I decided to
-                        # go with Java's output.
+                        # go with Java's choices.
                         #
                          "alnum") ByteSelector "$selector_attribute" "0x(30-39 41-5A 61-7A AA B5 BA C0-D6 D8-F6 F8-FF)" "$selector_output_name";;
                          "alpha") ByteSelector "$selector_attribute" "0x(41-5A 61-7A AA B5 BA C0-D6 D8-F6 F8-FF)" "$selector_output_name";;
@@ -1792,10 +1793,10 @@ ByteSelector() {
                         "latin1") ByteSelector "$selector_attribute" "0x(80-FF)" "$selector_output_name";;
                            "all") ByteSelector "$selector_attribute" "0x(00-FF)" "$selector_output_name";;
 
-                               *) Error "${selector_class@Q} is not the name of an implemented character class";;
+                               *) Error "$(Delimit "${selector_class}") is not the name of an implemented character class";;
                     esac
                 else
-                    Error "problem extracting a character class from ${selector_input_start@Q}"
+                    Error "problem extracting a character class from $(Delimit "${selector_input_start}")"
                 fi
             elif [[ $selector_input =~ ^(r([#]*)(\"|\')) ]]; then
                 #
@@ -1845,7 +1846,7 @@ ByteSelector() {
                     # the outer loop.
                     #
                     selector_tail="${BASH_REMATCH[1]}"
-                    if [[ $selector_tail =~ ^([[:blank:]]|$) ]]; then
+                    if [[ $selector_tail =~ ^([$' \t']|$) ]]; then
                         #
                         # Grab the body of the raw string (everything between the prefix
                         # and suffix), then update selector_input for the next loop.
@@ -1901,10 +1902,10 @@ ByteSelector() {
                                         printf -v "selector_chars[${selector_char_code}]" "%.2X" "${selector_char_code}"
                                     fi
                                 else
-                                    InternalError "recovered code point ${selector_char_code@Q} of character at index ${selector_index} in ${selector_body@Q} isn't valid"
+                                    InternalError "recovered code point $(Delimit "${selector_char_code}") of character at index ${selector_index} in $(Delimit "${selector_body}") isn't valid"
                                 fi
                             else
-                                InternalError "problem recovering code point of character at index ${selector_index} in ${selector_body@Q}"
+                                InternalError "problem recovering code point of character at index ${selector_index} in $(Delimit "${selector_body}")"
                             fi
                         done
 
@@ -1912,17 +1913,17 @@ ByteSelector() {
                             ByteSelector "$selector_attribute" "0x(${selector_chars[*]})" "$selector_output_name"
                         fi
                     else
-                        Error "all tokens must be space separated in byte selector ${selector_input_start@Q}"
+                        Error "all tokens must be space separated in byte selector $(Delimit "${selector_input_start}")"
                     fi
                 else
-                    Error "can't find raw string suffix ${selector_suffix@Q} in byte selector ${selector_input_start@Q}"
+                    Error "can't find raw string suffix $(Delimit "${selector_suffix}") in byte selector $(Delimit "${selector_input_start}")"
                 fi
             else
-                Error "no valid token found at the start of byte selector ${selector_input_start@Q}"
+                Error "no valid token found at the start of byte selector $(Delimit "${selector_input_start}")"
             fi
         done
     else
-        InternalError "${selector_output_name@Q} is not recognized as an attribute array name"
+        InternalError "$(Delimit "${selector_output_name}") is not recognized as an attribute array name"
     fi
 
     #
@@ -2154,7 +2155,7 @@ DebugHandler() {
                             else
                                 tag="->"            # marks a possible mistake
                             fi
-                            printf "[Debug] %s %s=%s\n" "$tag" "$key" "${SCRIPT_STRINGS[$key]@Q}"
+                            printf "[Debug] %s %s=%s\n" "$tag" "$key" "$(Delimit "${SCRIPT_STRINGS[$key]}")"
                         done
                         printf "[Debug]\n"
                     fi
@@ -2232,7 +2233,7 @@ DebugHandler() {
                     DUMP-XXD)
                         printf "[Debug] Dump Generator: xxd %s\n" "${SCRIPT_XXD_OPTIONS[*]} ${2:--}";;
 
-                     *) InternalError "dump ${SCRIPT_STRINGS[DUMP.handler]@Q} has not been implemented";;
+                     *) InternalError "dump $(Delimit "${SCRIPT_STRINGS[DUMP.handler]}") has not been implemented";;
                 esac
                 printf "\n"
             fi;;
@@ -2270,7 +2271,7 @@ Dump() {
                 internal) handler="DUMP-INTERNAL";;
                 selected) ;;
                      xxd) handler="DUMP-XXD";;
-                       *) InternalError "DEBUG.dump ${SCRIPT_STRINGS[DEBUG.dump]@Q} has not been implemented";;
+                       *) InternalError "DEBUG.dump $(Delimit "${SCRIPT_STRINGS[DEBUG.dump]}") has not been implemented";;
             esac
 
             printf "[Debug]      Used Dump: %s\n" "$handler"
@@ -2284,7 +2285,7 @@ Dump() {
             DUMP-XXD)
                 DumpXXD "${1:--}";;
 
-             *) InternalError "dump handler ${SCRIPT_STRINGS[DUMP.handler]@Q} has not been implemented";;
+             *) InternalError "dump handler $(Delimit "${SCRIPT_STRINGS[DUMP.handler]}") has not been implemented";;
         esac
     else
         InternalError "SCRIPT_STRINGS[DUMP.handler] has not been initialized"
@@ -2400,7 +2401,7 @@ DumpXXDInternal() {
             # with, and probably much easier than messing around with the regular
             # expression and then thoroughly testing the changes.
             #
-            if [[ $line =~ ^(([[:xdigit:]]+):' ')?([[:xdigit:]]{$byte_digits_per_octet_xxd}(${byte_separator_xxd}[[:xdigit:]]{$byte_digits_per_octet_xxd})*)('  '(.*))?$ ]]; then
+            if [[ $line =~ ^(([0123456789abcdefABCDEF]+):' ')?([0123456789abcdefABCDEF]{$byte_digits_per_octet_xxd}(${byte_separator_xxd}[0123456789abcdefABCDEF]{$byte_digits_per_octet_xxd})*)('  '(.*))?$ ]]; then
                 addr="${BASH_REMATCH[2]}"
                 byte="${BASH_REMATCH[3]}"
                 text="${BASH_REMATCH[6]}"
@@ -2546,7 +2547,7 @@ DumpXXDInternal() {
                     addr_format=""              # omits rest of the addresses
                 fi
             else
-                InternalError "problem parsing xxd output line ${line@Q}"
+                InternalError "problem parsing xxd output line $(Delimit "${line}")"
             fi
         else
             #
@@ -2733,7 +2734,7 @@ Initialize2_Fields() {
             SCRIPT_STRINGS[ADDR.format]="%${SCRIPT_STRINGS[ADDR.format.width]}x"
             SCRIPT_STRINGS[ADDR.digits]="${SCRIPT_STRINGS[ADDR.format.width]#0}";;
 
-         *) InternalError "address output ${SCRIPT_STRINGS[ADDR.output]@Q} has not been implemented";;
+         *) InternalError "address output $(Delimit "${SCRIPT_STRINGS[ADDR.output]}") has not been implemented";;
     esac
 
     if [[ ${SCRIPT_STRINGS[ADDR.output]} != "EMPTY" ]]; then
@@ -2748,9 +2749,16 @@ Initialize2_Fields() {
         fi
     fi
 
+    #
+    # Need to use the right locale if we're going to count characters in strings
+    # that are part of the dump we generate.
+    #
+
+    LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
     SCRIPT_STRINGS[ADDR.prefix.size]="${#SCRIPT_STRINGS[ADDR.prefix]}"
     SCRIPT_STRINGS[ADDR.suffix.size]="${#SCRIPT_STRINGS[ADDR.suffix]}"
     SCRIPT_STRINGS[ADDR.field.separator.size]="${#SCRIPT_STRINGS[ADDR.field.separator]}"
+    LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
 
     #
     # TEXT field initializations. Main job is to pick a TEXT field mapping array,
@@ -2786,25 +2794,33 @@ Initialize2_Fields() {
             SCRIPT_STRINGS[TEXT.map]="${SCRIPT_STRINGS[TEXT.has.attributes]:+SCRIPT_ASCII_TEXT_MAP}"
             SCRIPT_STRINGS[TEXT.chars.per.octet]="1";;
 
-         *) InternalError "text output ${SCRIPT_STRINGS[TEXT.output]@Q} has not been implemented";;
+         *) InternalError "text output $(Delimit "${SCRIPT_STRINGS[TEXT.output]}") has not been implemented";;
     esac
 
+    #
+    # Need to use the right locale if we're going to count characters in strings
+    # that are part of the dump we generate.
+    #
+
+    LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
     SCRIPT_STRINGS[TEXT.prefix.size]="${#SCRIPT_STRINGS[TEXT.prefix]}"
     SCRIPT_STRINGS[TEXT.separator.size]="${#SCRIPT_STRINGS[TEXT.separator]}"
     SCRIPT_STRINGS[TEXT.suffix.size]="${#SCRIPT_STRINGS[TEXT.suffix]}"
+    LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
 
     #
     # Checking done next assumes that referenced TEXT field mapping arrays aren't
-    # built by Initialize7_Maps, so they must already exist.
+    # built by Initialize7_Maps, so they must already exist. Using [:upper:] here
+    # to check the recorded TEXT field mappng array is fine here.
     #
 
     if [[ -n ${SCRIPT_STRINGS[TEXT.map]} ]]; then
         if [[ ${SCRIPT_STRINGS[TEXT.map]} =~ ^"SCRIPT_"[[:upper:]_]*"TEXT_MAP"$ ]]; then
             if [[ ! -v SCRIPT_STRINGS[TEXT.map] ]]; then
-                InternalError "${SCRIPT_STRINGS[TEXT.map]@Q} is not an existing TEXT field mapping array"
+                InternalError "$(Delimit "${SCRIPT_STRINGS[TEXT.map]}") is not an existing TEXT field mapping array"
             fi
         else
-            InternalError "${SCRIPT_STRINGS[TEXT.map]@Q} is not recognized as a TEXT field mapping array name"
+            InternalError "$(Delimit "${SCRIPT_STRINGS[TEXT.map]}") is not recognized as a TEXT field mapping array name"
         fi
     fi
 
@@ -2863,7 +2879,7 @@ Initialize2_Fields() {
             SCRIPT_STRINGS[BYTE.digits.per.octet]="2"
             SCRIPT_STRINGS[BYTE.digits.per.octet-xxd]="2";;
 
-         *) InternalError "byte output ${SCRIPT_STRINGS[BYTE.output]@Q} has not been implemented";;
+         *) InternalError "byte output $(Delimit "${SCRIPT_STRINGS[BYTE.output]}") has not been implemented";;
     esac
 
     #
@@ -2875,7 +2891,7 @@ Initialize2_Fields() {
 
     if [[ -n ${SCRIPT_STRINGS[BYTE.map]} ]]; then
         if [[ ! ${SCRIPT_STRINGS[BYTE.map]} =~ ^"SCRIPT_BYTE_MAP"$ ]]; then
-            InternalError "${SCRIPT_STRINGS[BYTE.map]@Q} is not recognized as a BYTE field mapping array name"
+            InternalError "$(Delimit "${SCRIPT_STRINGS[BYTE.map]}") is not recognized as a BYTE field mapping array name"
         fi
     fi
 
@@ -2898,9 +2914,16 @@ Initialize2_Fields() {
         fi
     fi
 
+    #
+    # Need to use the right locale if we're going to count characters in strings
+    # that are part of the dump we generate.
+    #
+
+    LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
     SCRIPT_STRINGS[BYTE.prefix.size]="${#SCRIPT_STRINGS[BYTE.prefix]}"
     SCRIPT_STRINGS[BYTE.separator.size]="${#SCRIPT_STRINGS[BYTE.separator]}"
     SCRIPT_STRINGS[BYTE.suffix.size]="${#SCRIPT_STRINGS[BYTE.suffix]}"
+    LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
 
     if [[ -z ${SCRIPT_STRINGS[BYTE.separator]} ]]; then
         SCRIPT_STRINGS[BYTE.grouping.xxd]="0"
@@ -3025,7 +3048,8 @@ Initialize4_Layout() {
         #
         # Next, modify the separation between individual bytes in the BYTE field
         # or characters in the TEXT field so they all can be lined up vertically
-        # when they're printed on separate lines.
+        # when they're printed on separate lines. TEXT.separator should always be
+        # spaces, so we don't have to switch locales to get its proper length.
         #
 
         padding=$((${SCRIPT_STRINGS[BYTE.digits.per.octet]} - ${SCRIPT_STRINGS[TEXT.chars.per.octet]} + ${SCRIPT_STRINGS[BYTE.separator.size]} - ${SCRIPT_STRINGS[TEXT.separator.size]}))
@@ -3069,7 +3093,7 @@ Initialize4_Layout() {
             fi
         fi
     elif [[ ${SCRIPT_STRINGS[DUMP.layout]} != "WIDE" ]]; then
-        InternalError "layout ${SCRIPT_STRINGS[DUMP.layout]@Q} has not been implemented"
+        InternalError "layout $(Delimit "${SCRIPT_STRINGS[DUMP.layout]}") has not been implemented"
     fi
 }
 
@@ -3157,7 +3181,8 @@ Initialize6_Handler() {
 
     for key_xxd in "${!SCRIPT_STRINGS[@]}"; do
         #
-        # Only check official looking keys that end in the "-xxd" suffix.
+        # Only check official looking keys that end in the "-xxd" suffix. Using the
+        # [:upper:] and [:lower:] character classes is fine here.
         #
         if [[ $key_xxd =~ ^([[:upper:]]+([.][[:lower:]]+)+)"-xxd"$ ]]; then
             #
@@ -3238,10 +3263,10 @@ Initialize7_Maps() {
                 OCTAL)
                     field_map=({0..3}{0..7}{0..7});;
 
-                 *) InternalError "builder for base ${SCRIPT_STRINGS[BYTE.output]@Q} map has not been implemented";;
+                 *) InternalError "builder for base $(Delimit "${SCRIPT_STRINGS[BYTE.output]}") map has not been implemented";;
             esac
         else
-            InternalError "${SCRIPT_STRINGS[BYTE.map]@Q} is not a recognized byte mapping array name"
+            InternalError "$(Delimit "${SCRIPT_STRINGS[BYTE.map]}") is not a recognized byte mapping array name"
         fi
     fi
 
@@ -3313,7 +3338,7 @@ Initialize7_Maps() {
                 #
                 # Look for an unexpanded Unicode escape sequence in the mapping array.
                 #
-                if [[ "${field_map[*]}" =~ '\u'[[:xdigit:]]{4} ]]; then
+                if [[ "${field_map[*]}" =~ '\u'[0123456789abcdefABCDEF]{4} ]]; then
                     unexpanded="${SCRIPT_STRINGS[DUMP.unexpanded.char]:-"?"}"
 
                     #
@@ -3325,7 +3350,7 @@ Initialize7_Maps() {
                         # end of each string in the TEXT field mapping array. Sufficient
                         # for our purposes, but it's not completely general.
                         #
-                        if [[ ${field_map[$index]} =~ ^(.*)('\u'[[:xdigit:]]{4})$ ]]; then
+                        if [[ ${field_map[$index]} =~ ^(.*)('\u'[0123456789abcdefABCDEF]{4})$ ]]; then
                             #
                             # Found one, so replace it with a string that's filled with the
                             # right number of question marks. We build it using printf, a
@@ -3348,7 +3373,7 @@ Initialize7_Maps() {
                 LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
             fi
         else
-            InternalError "${SCRIPT_STRINGS[TEXT.map]@Q} isn't the name of a TEXT field mapping array"
+            InternalError "$(Delimit "${SCRIPT_STRINGS[TEXT.map]}") isn't the name of a TEXT field mapping array"
         fi
     fi
 }
@@ -3394,9 +3419,9 @@ Initialize8_Attributes() {
                 for field_name in "BYTE" "TEXT"; do
                     if [[ -n ${SCRIPT_STRINGS[${field_name}.map]} ]]; then
                         #
-                        # Extract the "key" we have to use to find the ANSI escape
-                        # sequence in SCRIPT_ANSI_ESCAPE, basically by omitting the
-                        # field name specific prefix that Initialize1_Begin added.
+                        # Using bash's [:alnum:] character class is fine here - whatever
+                        # is matched will have to work as a key in SCRIPT_ANSI_ESCAPE and
+                        # that key was built by this script using ASCII characters.
                         #
                         if [[ $attribute =~ ^(${field_name}_)((BACKGROUND|FOREGROUND)[.][[:alnum:]-]+)$ ]]; then
                             attribute_name="${BASH_REMATCH[2]}"
@@ -3437,13 +3462,13 @@ Initialize9_End() {
 
     if [[ -n ${SCRIPT_STRINGS[BYTE.map]} ]]; then
         if [[ ! -v ${SCRIPT_STRINGS[BYTE.map]} ]]; then
-            InternalError "${SCRIPT_STRINGS[BYTE.map]@Q} isn't the name of an existing BYTE field mapping array"
+            InternalError "$(Delimit "${SCRIPT_STRINGS[BYTE.map]}") isn't the name of an existing BYTE field mapping array"
         fi
     fi
 
     if [[ -n ${SCRIPT_STRINGS[TEXT.map]} ]]; then
         if [[ ! -v ${SCRIPT_STRINGS[TEXT.map]} ]]; then
-            InternalError "${SCRIPT_STRINGS[TEXT.map]@Q} isn't the name of an existing TEXT field mapping array"
+            InternalError "$(Delimit "${SCRIPT_STRINGS[TEXT.map]}") isn't the name of an existing TEXT field mapping array"
         fi
     fi
 }
@@ -3530,6 +3555,17 @@ Options() {
     # the way it will always be. Haven't found the time to clean things up, so I
     # apologize for any confusion.
     #
+    # Actually slowly working on this in combination with the Java implementation.
+    # Low level differences between Java and bash regular expressions can often be
+    # subtle. In my opinion the way bash regular expressions are affected by your
+    # locale and values assigned environment variables, like LC_ALL, complicates
+    # everything. For example, exactly what are you matching when you use ranges
+    # or character classes and when are they appropriate? If you explicitly set
+    # the locale to C or POSIX in a bash script what else are you affecting in
+    # yur script (e.g., quoting or counting of characters in a string might be
+    # affected). Anyway, I'm still working on the bash regular expressions in
+    # this script and I suspect I'm about 75% done...
+    #
 
     argc="$#"
 
@@ -3559,7 +3595,7 @@ Options() {
         #
         case "$target" in
             --addr=)
-                if [[ $optarg =~ ^[[:blank:]]*(decimal|empty|hex|HEX|octal|xxd)[[:blank:]]*([:][[:blank:]]*([0]?[123456789][0123456789]*)[[:blank:]]*)?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*(decimal|empty|hex|HEX|octal|xxd)[$' \t']*([:][$' \t']*([0]?[123456789][0123456789]*)[$' \t']*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     width="${BASH_REMATCH[3]}"
                     case "$style" in
@@ -3569,7 +3605,7 @@ Options() {
                             HEX) SCRIPT_STRINGS[ADDR.output]="HEX-UPPER";;
                           octal) SCRIPT_STRINGS[ADDR.output]="OCTAL";;
                             xxd) SCRIPT_STRINGS[ADDR.output]="XXD";;
-                              *) InternalError "option ${arg@Q} has not been completely implemented";;
+                              *) InternalError "option $(Delimit "${arg}") has not been completely implemented";;
                     esac
                     if [[ -n $width ]]; then
                         #
@@ -3581,27 +3617,27 @@ Options() {
                         SCRIPT_STRINGS[ADDR.format.width]="$width"
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --addr-prefix=)
-                if [[ $optarg =~ ^([[:print:]])*$ ]]; then
+                if (LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"; [[ $optarg =~ ^([[:print:]])*$ ]]); then
                     SCRIPT_STRINGS[ADDR.prefix]="$optarg"
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") contains unprintable characters"
                 fi;;
 
             --addr-suffix=)
-                if [[ $optarg =~ ^([[:print:]])*$ ]]; then
+                if (LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"; [[ $optarg =~ ^([[:print:]])*$ ]]); then
                     SCRIPT_STRINGS[ADDR.suffix]="$optarg"
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") contains unprintable characters"
                 fi;;
 
             --background=)
-                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)([[:blank:]]*[:][[:blank:]]*(.*))?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([a-zA-Z]+([-][a-zA-Z]+)*)([$' \t']*[:][$' \t']*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
-                    selector="${BASH_REMATCH[4]}"
+                    selector="${BASH_REMATCH[4]:-0x(00-FF)}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
                         #
                         # This option applies to the BYTE and TEXT fields, so two calls
@@ -3610,14 +3646,14 @@ Options() {
                         ByteSelector "BACKGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_BACKGROUND"
                         ByteSelector "BACKGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_TEXT_BACKGROUND"
                     else
-                        Error "background attribute ${attribute@Q} in option ${arg@Q} is not recognized"
+                        Error "background attribute $(Delimit "${attribute}") in option $(Delimit "${arg}") is not recognized"
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --byte=)
-                if [[ $optarg =~ ^[[:blank:]]*(binary|decimal|empty|hex|HEX|octal|xxd)[[:blank:]]*([:][[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*)?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*(binary|decimal|empty|hex|HEX|octal|xxd)[$' \t']*([:][$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     length="${BASH_REMATCH[3]}"
                     case "$style" in
@@ -3628,60 +3664,60 @@ Options() {
                             HEX) SCRIPT_STRINGS[BYTE.output]="HEX-UPPER";;
                           octal) SCRIPT_STRINGS[BYTE.output]="OCTAL";;
                             xxd) SCRIPT_STRINGS[BYTE.output]="XXD";;
-                              *) InternalError "option ${arg@Q} has not been completely implemented";;
+                              *) InternalError "option $(Delimit "${arg}") has not been completely implemented";;
                     esac
                     if [[ -n $length ]]; then
                         SCRIPT_STRINGS[DUMP.record.length]=$((length))
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --byte-background=)
-                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([a-zA-Z]+([-][a-zA-Z]+)*)[$' \t']*([:][$' \t']*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
-                    selector="${BASH_REMATCH[4]}"
+                    selector="${BASH_REMATCH[4]:-0x(00-FF)}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
                         ByteSelector "BACKGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_BACKGROUND"
                     else
-                        Error "background attribute ${attribute@Q} in option ${arg@Q} is not recognized"
+                        Error "background attribute $(Delimit "${attribute}") in option $(Delimit "${arg}") is not recognized"
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --byte-foreground=)
-                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([a-zA-Z]+([-][a-zA-Z]+)*)[$' \t']*([:][$' \t']*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
-                    selector="${BASH_REMATCH[4]}"
+                    selector="${BASH_REMATCH[4]:-0x(00-FF)}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
                         ByteSelector "FOREGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_FOREGROUND"
                     else
-                        Error "foreground attribute ${attribute@Q} in option ${arg@Q} is not recognized"
+                        Error "foreground attribute $(Delimit "${attribute}") in option $(Delimit "${arg}") is not recognized"
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --byte-prefix=)
-                if [[ $optarg =~ ^([[:print:]])*$ ]]; then
+                if (LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"; [[ $optarg =~ ^([[:print:]])*$ ]]); then
                     SCRIPT_STRINGS[BYTE.prefix]="$optarg"
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") contains unprintable characters"
                 fi;;
 
             --byte-separator=)
-                if [[ $optarg =~ ^([[:print:]])*$ ]]; then
+                if (LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"; [[ $optarg =~ ^([[:print:]])*$ ]]); then
                     SCRIPT_STRINGS[BYTE.separator]="$optarg"
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") contains unprintable characters"
                 fi;;
 
             --byte-suffix=)
-                if [[ $optarg =~ ^([[:print:]])*$ ]]; then
+                if (LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"; [[ $optarg =~ ^([[:print:]])*$ ]]); then
                     SCRIPT_STRINGS[BYTE.suffix]="$optarg"
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") contains unprintable characters"
                 fi;;
 
             #
@@ -3709,7 +3745,7 @@ Options() {
                                 time) SCRIPT_STRINGS[DEBUG.time]="TRUE";;
                           unexpanded) SCRIPT_STRINGS[DEBUG.unexpanded]="TRUE";;
                                  xxd) SCRIPT_STRINGS[DEBUG.xxd]="TRUE";;
-                                   *) Error "field ${field@Q} in option ${arg@Q} is not recognized";;
+                                   *) Error "field $(Delimit "${field}") in option $(Delimit "${arg}") is not recognized";;
                     esac
                 done;;
 
@@ -3718,13 +3754,13 @@ Options() {
                     internal) SCRIPT_STRINGS[DEBUG.dump]="$optarg";;
                     selected) SCRIPT_STRINGS[DEBUG.dump]="$optarg";;
                          xxd) SCRIPT_STRINGS[DEBUG.dump]="$optarg";;
-                           *) Error "argument ${optarg@Q} in option ${arg@Q} is not recognized";;
+                           *) Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized";;
                 esac;;
 
             --foreground=)
-                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([a-zA-Z]+([-][a-zA-Z]+)*)[$' \t']*([:][$' \t']*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
-                    selector="${BASH_REMATCH[4]}"
+                    selector="${BASH_REMATCH[4]:-0x(00-FF)}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
                         #
                         # This option applies to the BYTE and TEXT fields, so two calls
@@ -3733,10 +3769,10 @@ Options() {
                         ByteSelector "FOREGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_BYTE_FOREGROUND"
                         ByteSelector "FOREGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_TEXT_FOREGROUND"
                     else
-                        Error "foreground attribute ${attribute@Q} in option ${arg@Q} is not recognized"
+                        Error "foreground attribute $(Delimit "${attribute}") in option $(Delimit "${arg}") is not recognized"
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --help|-[?])
@@ -3744,10 +3780,10 @@ Options() {
                 exit 0;;
 
             --length=)
-                if [[ $optarg =~ ^[[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*$ ]]; then
                     SCRIPT_STRINGS[DUMP.record.length]=$((BASH_REMATCH[1]))
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --license)
@@ -3758,35 +3794,35 @@ Options() {
                 SCRIPT_STRINGS[DUMP.layout]="NARROW";;
 
             --read=)
-                if [[ $optarg =~ ^[[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*$ ]]; then
                     SCRIPT_STRINGS[DUMP.input.read]=$((BASH_REMATCH[1]))
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --spacing=)
-                if [[ $optarg =~ ^[[:blank:]]*(1|single|2|double|3|triple)[[:blank:]]*$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*(1|single|2|double|3|triple)[$' \t']*$ ]]; then
                     spacing="${BASH_REMATCH[1]}"
                     case "$spacing" in
                         single|1) SCRIPT_STRINGS[DUMP.record.separator]=$'\n';;
                         double|2) SCRIPT_STRINGS[DUMP.record.separator]=$'\n\n';;
                         triple|3) SCRIPT_STRINGS[DUMP.record.separator]=$'\n\n\n';;
-                               *) InternalError "option ${arg@Q} has not been completely implemented";;
+                               *) InternalError "option $(Delimit "${arg}") has not been completely implemented";;
                     esac
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --start=)
-                if [[ $optarg =~ ^[[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*([:][[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*)?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*([:][$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*)?$ ]]; then
                     SCRIPT_STRINGS[DUMP.input.start]="$((BASH_REMATCH[1]))"
                     SCRIPT_STRINGS[DUMP.output.start]="$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))"
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --text=)
-                if [[ $optarg =~ ^[[:blank:]]*(ascii|caret|empty|escape|unicode|xxd)[[:blank:]]*([:][[:blank:]]*([123456789][0123456789]*|0[xX][[:xdigit:]]+|0[01234567]*)[[:blank:]]*)?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*(ascii|caret|empty|escape|unicode|xxd)[$' \t']*([:][$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     length="${BASH_REMATCH[3]}"
                     case "$style" in
@@ -3796,19 +3832,19 @@ Options() {
                          escape) SCRIPT_STRINGS[TEXT.output]="CARET_ESCAPE";;
                         unicode) SCRIPT_STRINGS[TEXT.output]="UNICODE";;
                             xxd) SCRIPT_STRINGS[TEXT.output]="XXD";;
-                              *) InternalError "option ${arg@Q} has not been completely implemented";;
+                              *) InternalError "option $(Delimit "${arg}") has not been completely implemented";;
                     esac
                     if [[ -n $length ]]; then
                         SCRIPT_STRINGS[DUMP.record.length]=$((length))
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --text-background=)
-                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([a-zA-Z]+([-][a-zA-Z]+)*)[$' \t']*([:][$' \t']*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
-                    selector="${BASH_REMATCH[4]}"
+                    selector="${BASH_REMATCH[4]:-0x(00-FF)}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[BACKGROUND.${attribute}] ]]; then
                         #
                         # The "TEXT_" prefix that's added here restricts changes
@@ -3816,40 +3852,40 @@ Options() {
                         #
                         ByteSelector "BACKGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_TEXT_BACKGROUND"
                     else
-                        Error "background attribute ${attribute@Q} in option ${arg@Q} is not recognized"
+                        Error "background attribute $(Delimit "${attribute}") in option $(Delimit "${arg}") is not recognized"
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --text-foreground=)
-                if [[ $optarg =~ ^[[:blank:]]*([[:alpha:]]+([-][[:alpha:]]+)*)[[:blank:]]*([:][[:blank:]]*(.*))?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([a-zA-Z]+([-][a-zA-Z]+)*)[$' \t']*([:][$' \t']*(.*))?$ ]]; then
                     attribute="${BASH_REMATCH[1]}"
-                    selector="${BASH_REMATCH[4]}"
+                    selector="${BASH_REMATCH[4]:-0x(00-FF)}"
                     if [[ -v SCRIPT_ANSI_ESCAPE[FOREGROUND.${attribute}] ]]; then
                         #
                         # The "TEXT_" prefix restricts changes to the TEXT field.
                         #
                         ByteSelector "FOREGROUND.${attribute}" "$selector" "SCRIPT_ATTRIBUTES_TEXT_FOREGROUND"
                     else
-                        Error "foreground attribute ${attribute@Q} in option ${arg@Q} is not recognized"
+                        Error "foreground attribute $(Delimit "${attribute}") in option $(Delimit "${arg}") is not recognized"
                     fi
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} is not recognized"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
                 fi;;
 
             --text-prefix=)
-                if [[ $optarg =~ ^([[:print:]])*$ ]]; then
+                if (LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"; [[ $optarg =~ ^([[:print:]])*$ ]]); then
                     SCRIPT_STRINGS[TEXT.prefix]="$optarg"
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") contains unprintable characters"
                 fi;;
 
             --text-suffix=)
-                if [[ $optarg =~ ^([[:print:]])*$ ]]; then
+                if (LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"; [[ $optarg =~ ^([[:print:]])*$ ]]); then
                     SCRIPT_STRINGS[TEXT.suffix]="$optarg"
                 else
-                    Error "argument ${optarg@Q} in option ${arg@Q} contains unprintable characters"
+                    Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") contains unprintable characters"
                 fi;;
 
             --version)
@@ -3865,7 +3901,7 @@ Options() {
 
              -) break;;                 # stdin abbreviation
             --) shift; break;;
-            -*) Error "invalid option ${arg@Q}";;
+            -*) Error "invalid option $(Delimit "${arg}")";;
              *) break;;
         esac
         shift
@@ -3893,10 +3929,31 @@ Setup() {
         #
         for name in ${SCRIPT_STRINGS[DUMP.required.commands]}; do
             if ! command -vp "$name" >/dev/null; then
-                Error "required command named ${name@Q} is not available"
+                Error "required command named $(Delimit "${name}") is not available"
             fi
         done
     fi
+}
+
+##############################
+#
+# Helper Functions
+#
+##############################
+
+Delimit() {
+    #
+    # A trivial function that joins it's arguments using one space, surrounds that
+    # string with double quotes, and prints it on standard output. It's currently
+    # only used to visually isolate the cause of an error from its explanation in
+    # error messages.
+    #
+    # Alternatives, like using the "Q" operator in bash's parameter transformation
+    # expansion to quote strings is easy and convenient, but results can be locale
+    # dependent and that quoting is designed to be consumed by bash.
+    #
+
+    (unset IFS; printf '"%s"\n' "$*")
 }
 
 ##############################
@@ -3998,12 +4055,12 @@ HelpScanner() {
             #
             # Can't get here if help_trigger is empty.
             #
-            if [[ $line =~ ^[#]+[[:blank:]]+("Copyright "(.+))$ ]]; then
+            if [[ $line =~ ^[#]+[$' \t']+("Copyright "(.+))$ ]]; then
                 value="${BASH_REMATCH[1]}"
                 if [[ -n ${help_footnote[Copyright]} ]]; then
                     help_footnote[Copyright]="${value}"
                 fi
-            elif [[ $line =~ ^[#]+[[:blank:]]+("License: "(.+))$ ]]; then
+            elif [[ $line =~ ^[#]+[$' \t']+("License: "(.+))$ ]]; then
                 value="${BASH_REMATCH[1]}"
                 if [[ -n ${help_footnote[License]} ]]; then
                     help_footnote[License]="${value}"
@@ -4517,7 +4574,8 @@ exit 0                  # skip everything else in this file
 #@#         The relative brightness of a <color> tends to increase as you move to the
 #@#         right in the table.
 #@#
-#@#         The <selector> is documented below in the SELECTORS section.
+#@#         The <selector> is documented below in the SELECTORS section. If <selector>
+#@#         and the colon are omitted, <color> is applied to all bytes.
 #@#
 #@#     --byte=<style>
 #@#     --byte=<style>:<length>
@@ -4544,6 +4602,7 @@ exit 0                  # skip everything else in this file
 #@#
 #@#         The available <color> choices are listed under the --background option's
 #@#         description. The <selector> is documented below in the SELECTORS section.
+#@#         If <selector> and the colon are omitted, <color> is applied to all bytes.
 #@#
 #@#     --byte-foreground=<color>:<selector>
 #@#         Sets the foreground <color> that's used when any of the bytes selected by
@@ -4551,6 +4610,7 @@ exit 0                  # skip everything else in this file
 #@#
 #@#         The available <color> choices are listed under the --foreground option's
 #@#         description. The <selector> is documented below in the SELECTORS section.
+#@#         If <selector> and the colon are omitted, <color> is applied to all bytes.
 #@#
 #@#     --byte-prefix=<string>
 #@#         Prepend <string> to the byte field in every record that's included in the
@@ -4600,7 +4660,8 @@ exit 0                  # skip everything else in this file
 #@#         right in the table. Foreground colors that start with the "blink-" prefix
 #@#         cause all characters displayed in that <color> to blink.
 #@#
-#@#         The <selector> is documented below in the SELECTORS section.
+#@#         The <selector> is documented below in the SELECTORS section. If <selector>
+#@#         and the colon are omitted, <color> is applied to all bytes.
 #@#
 #@#      -?
 #@#     --help
@@ -4743,6 +4804,7 @@ exit 0                  # skip everything else in this file
 #@#
 #@#         The available <color> choices are listed under the --background option's
 #@#         description. The <selector> is documented below in the SELECTORS section.
+#@#         If <selector> and the colon are omitted, <color> is applied to all bytes.
 #@#
 #@#     --text-foreground=<color>:<selector>
 #@#         Sets the foreground <color> that's used when any of the bytes selected by
@@ -4750,6 +4812,7 @@ exit 0                  # skip everything else in this file
 #@#
 #@#         The available <color> choices are listed under the --foreground option's
 #@#         description. The <selector> is documented below in the SELECTORS section.
+#@#         If <selector> and the colon are omitted, <color> is applied to all bytes.
 #@#
 #@#     --text-prefix=<string>
 #@#         Prepend <string> to the text field in every record that's included in the
