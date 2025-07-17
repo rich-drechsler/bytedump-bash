@@ -576,6 +576,39 @@
 # also are a few instances where LC_ALL is explicitly set to C for commands, like
 # grep or sort, but none of them affect the locale that the script itself is using.
 #
+#                        ------------------------------
+#
+# Finally, few words about the regular expressions used in this script. If you take
+# a close look at older versions you would be right to wonder exactly how I decided
+# to use character classes versus enumerating target characters or selecting them
+# using ranges. Even though the regular expressions all seemed to work, documenting
+# exactly how I decided to write them was impossible. I knew they needed attention,
+# but fiddling around with working regular expressions can be painful and it really
+# wasn't something I wanted to tackle.
+#
+# That changed after I started work on a Java version of this bash script. My goal
+# was to end up with a Java version that resembled the bytedump bash script closely
+# enough that understanding one implementation would be useful if you decide to dig
+# into the other. Whether I succeeded or not isn't my call, but the goal eventually
+# did force me to settle on the following regular expression "rules":
+#
+#   Character Classes
+#     Don't use them in the C locale and otherwise avoid them except to validate
+#     strings set by command line options that are supposed to appear, as is, in
+#     the dump we produce.
+#
+#     Command line options, like --addr-prefix or --byte-separator, are examples
+#     that have arguments that are validated using a character class, but only
+#     after we use LC_ALL to switch out of the C locale.
+#
+#   Character Ranges
+#     Use them in the C locale in place of character classes or enumerated lists
+#     of consecutive characters in bracket expressions.
+#
+#     Avoid ranges and instead list the characters that a bracket expression is
+#     supposed to match whenever the regular expression might not be executed in
+#     the C locale.
+#
 
 ##############################
 #
@@ -1503,7 +1536,7 @@ ByteMapper() {
                 fi;;
 
             HEX-LOWER|HEX-UPPER)
-                if [[ $mapper_bytes =~ ^[$' \t']*([0123456789abcdefABCDEF]{2})[$' \t']* ]]; then
+                if [[ $mapper_bytes =~ ^[$' \t']*([0-9a-fA-F]{2})[$' \t']* ]]; then
                     #
                     # Unrolled first loop interation because it's the only one
                     # that doesn't use $mapper_separator.
@@ -1511,7 +1544,7 @@ ByteMapper() {
                     mapper_index="16#${BASH_REMATCH[1]}"        # bash base conversion
                     mapper_output="${mapper_map[$mapper_index]}"
                     mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
-                    while [[ $mapper_bytes =~ ^([0123456789abcdefABCDEF]{2})[$' \t']* ]]; do
+                    while [[ $mapper_bytes =~ ^([0-9a-fA-F]{2})[$' \t']* ]]; do
                         mapper_index="16#${BASH_REMATCH[1]}"
                         mapper_output+="${mapper_separator}${mapper_map[$mapper_index]}"
                         mapper_bytes="${mapper_bytes:${#BASH_REMATCH[0]}}"
@@ -1543,7 +1576,6 @@ ByteSelector() {
     local selector_input
     local selector_input_start
     local -i selector_last
-    local selector_lc_all
     local -n selector_output
     local selector_output_name
     local selector_prefix
@@ -1631,15 +1663,13 @@ ByteSelector() {
     # However, unlike ByteMapper, this function isn't used much and doesn't have
     # to deal with binary numbers, so printf would be an easy alternative.
     #
-    # NOTE - this entire function now runs in the user's locale, so we have to be
-    # cautious using character classes and ranges in regular expressions. I'm also
-    # working on a Java version of this program, and decided to make a few changes
-    # to some of the regular expressions used in this function. Hopefully I didn't
-    # break anything.
+    # NOTE - decided setting LC_ALL to the user's locale should be restricted to
+    # processing raw string literals, which is the only place it's really needed.
+    # The previous approach switched to the user's local right away and restored
+    # LC_ALL immediately before returning. It worked, but it affected how some of
+    # the regular expressions were written, because we couldn't be sure what was
+    # stored in LC_ALL.
     #
-
-    selector_lc_all="$LC_ALL"
-    LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
 
     selector_status="0"
     selector_base=""
@@ -1652,7 +1682,7 @@ ByteSelector() {
     # First check for the optional base prefix.
     #
 
-    if [[ $selector_input =~ ^[$' \t']*(0[xX]?)?"("(.*)")"[$' \t']*$ ]]; then
+    if [[ $selector_input =~ ^[$' \t']*(0[xX]?)?[(](.*)[)][$' \t']*$ ]]; then
         #
         # Selector string starts with an optional base prefix and is followed by
         # tokens that are completely enclosed in a single set of parentheses, so
@@ -1686,7 +1716,7 @@ ByteSelector() {
             # Implemented tokens can be identified by looking at how they start. It's
             # an approach that also improves error messages when we notice mistakes.
             #
-            if [[ $selector_input =~ ^(0[xX]?)?[0123456789abcdefABCDEF] ]]; then
+            if [[ $selector_input =~ ^(0[xX]?)?[0-9a-fA-F] ]]; then
                 #
                 # Next token looks like an integer or integer range. All "numbers" are
                 # carefully checked before we ask bash to do anything significant with
@@ -1698,7 +1728,7 @@ ByteSelector() {
                     # and the digits in every integer must all be valid in that base.
                     #
                     if [[ $selector_base == "16" ]]; then
-                        if [[ $selector_input =~ ^(([0123456789abcdefABCDEF]+)([-]([0123456789abcdefABCDEF]+))?)([$' \t']+|$) ]]; then
+                        if [[ $selector_input =~ ^(([0-9a-fA-F]+)([-]([0-9a-fA-F]+))?)([$' \t']+|$) ]]; then
                             selector_first="16#${BASH_REMATCH[2]}"
                             selector_last="16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                             selector_input="${selector_input:${#BASH_REMATCH[0]}}"
@@ -1706,7 +1736,7 @@ ByteSelector() {
                             Error "problem extracting a hex integer from $(Delimit "${selector_input_start}")"
                         fi
                     elif [[ $selector_base == "8" ]]; then
-                        if [[ $selector_input =~ ^(([01234567]+)([-]([01234567]+))?)([$' \t']+|$) ]]; then
+                        if [[ $selector_input =~ ^(([0-7]+)([-]([0-7]+))?)([$' \t']+|$) ]]; then
                             selector_first="8#${BASH_REMATCH[2]}"
                             selector_last="8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                             selector_input="${selector_input:${#BASH_REMATCH[0]}}"
@@ -1714,7 +1744,7 @@ ByteSelector() {
                             Error "problem extracting an octal integer from $(Delimit "${selector_input_start}")"
                         fi
                     elif [[ $selector_base == "10" ]]; then
-                        if [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([$' \t']+|$) ]]; then
+                        if [[ $selector_input =~ ^(([1-9][0-9]*)([-]([1-9][0-9]*))?)([$' \t']+|$) ]]; then
                             selector_first="${BASH_REMATCH[2]}"
                             selector_last="${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                             selector_input="${selector_input:${#BASH_REMATCH[0]}}"
@@ -1730,15 +1760,15 @@ ByteSelector() {
                     # use C-style literal notation to specify the base. Both ends of an
                     # integer range must be expressed in the same base.
                     #
-                    if [[ $selector_input =~ ^(0[xX]([0123456789abcdefABCDEF]+)([-]0[xX]([0123456789abcdefABCDEF]+))?)([$' \t']+|$) ]]; then
+                    if [[ $selector_input =~ ^(0[xX]([0-9a-fA-F]+)([-]0[xX]([0-9a-fA-F]+))?)([$' \t']+|$) ]]; then
                         selector_first="16#${BASH_REMATCH[2]}"
                         selector_last="16#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                         selector_input="${selector_input:${#BASH_REMATCH[0]}}"
-                    elif [[ $selector_input =~ ^((0[01234567]*)([-](0[01234567]*))?)([$' \t']+|$) ]]; then
+                    elif [[ $selector_input =~ ^((0[0-7]*)([-](0[0-7]*))?)([$' \t']+|$) ]]; then
                         selector_first="8#${BASH_REMATCH[2]}"
                         selector_last="8#${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                         selector_input="${selector_input:${#BASH_REMATCH[0]}}"
-                    elif [[ $selector_input =~ ^(([123456789][0123456789]*)([-]([123456789][0123456789]*))?)([$' \t']+|$) ]]; then
+                    elif [[ $selector_input =~ ^(([1-9][0-9]*)([-]([1-9][0-9]*))?)([$' \t']+|$) ]]; then
                         selector_first="${BASH_REMATCH[2]}"
                         selector_last="${BASH_REMATCH[4]:-${BASH_REMATCH[2]}}"
                         selector_input="${selector_input:${#BASH_REMATCH[0]}}"
@@ -1756,12 +1786,7 @@ ByteSelector() {
                     done
                 fi
             elif [[ $selector_input =~ ^"[:" ]]; then
-                #
-                # The next token looks like a selector "character class". Using bash's
-                # [:alnum:] character class is fine here - whatever matches is checked
-                # again in the case statement.
-                #
-                if [[ $selector_input =~ ^"[:"([[:alnum:]]+)":]"([$' \t']+|$) ]]; then
+                if [[ $selector_input =~ ^"[:"([a-zA-Z0-9]+)":]"([$' \t']+|$) ]]; then
                     selector_class="${BASH_REMATCH[1]}"
                     selector_input="${selector_input:${#BASH_REMATCH[0]}}"
 
@@ -1831,7 +1856,7 @@ ByteSelector() {
                 # the selector.
                 #
                 # So the bottom line is we have to be careful "parsing" raw strings. The
-                # next step is remove the raw string's prefix from the current selector
+                # next step removes the raw string's prefix from the selector's input
                 # string. Once that's done we can use a regular expression to find the
                 # first occurence of the raw string's suffix, and after that it's pretty
                 # easy to grab everything that we need.
@@ -1878,6 +1903,15 @@ ByteSelector() {
                         # conversions).
                         #
 
+                        #
+                        # We need to extract individual characters that the user entered on
+                        # the command line, rather than the individual bytes that were used
+                        # to encode those characters. That means we have to restore LC_ALL
+                        # to whatever it was when this script started.
+                        #
+
+                        LC_ALL="${SCRIPT_LC_ALL[EXTERNAL]}"
+
                         selector_chars=()
                         for (( selector_index = 0; selector_index < ${#selector_body}; selector_index++ )); do
                             #
@@ -1894,9 +1928,6 @@ ByteSelector() {
 
                             selector_char_code=""               # a precaution
                             if printf -v "selector_char_code" "%d" "'${selector_body:${selector_index}:1}"; then
-                                #
-                                # Not using a range or character class here - just to be safe.
-                                #
                                 if [[ $selector_char_code =~ ^[0123456789]+$ ]]; then
                                     if (( selector_char_code >= 0 && selector_char_code < 256 )); then
                                         printf -v "selector_chars[${selector_char_code}]" "%.2X" "${selector_char_code}"
@@ -1908,6 +1939,14 @@ ByteSelector() {
                                 InternalError "problem recovering code point of character at index ${selector_index} in $(Delimit "${selector_body}")"
                             fi
                         done
+
+                        #
+                        # Finished with the "raw string", so make sure LC_ALL is set back
+                        # to the preferred locale. This must happen before the ByteSelector
+                        # recursive call that's used to process the selector_chars array.
+                        #
+
+                        LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
 
                         if (( ${#selector_chars[@]} > 0 )); then
                             ByteSelector "$selector_attribute" "0x(${selector_chars[*]})" "$selector_output_name"
@@ -1925,12 +1964,6 @@ ByteSelector() {
     else
         InternalError "$(Delimit "${selector_output_name}") is not recognized as an attribute array name"
     fi
-
-    #
-    # Restore LC_ALL to what it was when this function was called.
-    #
-
-    LC_ALL="$selector_lc_all"
 
     return "$selector_status"
 }
@@ -2401,7 +2434,7 @@ DumpXXDInternal() {
             # with, and probably much easier than messing around with the regular
             # expression and then thoroughly testing the changes.
             #
-            if [[ $line =~ ^(([0123456789abcdefABCDEF]+):' ')?([0123456789abcdefABCDEF]{$byte_digits_per_octet_xxd}(${byte_separator_xxd}[0123456789abcdefABCDEF]{$byte_digits_per_octet_xxd})*)('  '(.*))?$ ]]; then
+            if [[ $line =~ ^(([0-9a-fA-F]+):' ')?([0-9a-fA-F]{$byte_digits_per_octet_xxd}(${byte_separator_xxd}[0-9a-fA-F]{$byte_digits_per_octet_xxd})*)('  '(.*))?$ ]]; then
                 addr="${BASH_REMATCH[2]}"
                 byte="${BASH_REMATCH[3]}"
                 text="${BASH_REMATCH[6]}"
@@ -2808,14 +2841,8 @@ Initialize2_Fields() {
     SCRIPT_STRINGS[TEXT.suffix.size]="${#SCRIPT_STRINGS[TEXT.suffix]}"
     LC_ALL="${SCRIPT_LC_ALL[INTERNAL]}"
 
-    #
-    # Checking done next assumes that referenced TEXT field mapping arrays aren't
-    # built by Initialize7_Maps, so they must already exist. Using [:upper:] here
-    # to check the recorded TEXT field mappng array is fine here.
-    #
-
     if [[ -n ${SCRIPT_STRINGS[TEXT.map]} ]]; then
-        if [[ ${SCRIPT_STRINGS[TEXT.map]} =~ ^"SCRIPT_"[[:upper:]_]*"TEXT_MAP"$ ]]; then
+        if [[ ${SCRIPT_STRINGS[TEXT.map]} =~ ^"SCRIPT_"[A-Z_]*"TEXT_MAP"$ ]]; then
             if [[ ! -v SCRIPT_STRINGS[TEXT.map] ]]; then
                 InternalError "$(Delimit "${SCRIPT_STRINGS[TEXT.map]}") is not an existing TEXT field mapping array"
             fi
@@ -3180,11 +3207,7 @@ Initialize6_Handler() {
     skipped=""
 
     for key_xxd in "${!SCRIPT_STRINGS[@]}"; do
-        #
-        # Only check official looking keys that end in the "-xxd" suffix. Using the
-        # [:upper:] and [:lower:] character classes is fine here.
-        #
-        if [[ $key_xxd =~ ^([[:upper:]]+([.][[:lower:]]+)+)"-xxd"$ ]]; then
+        if [[ $key_xxd =~ ^([A-Z]+([.][a-z]+)+)"-xxd"$ ]]; then
             #
             # The associated key is the one we get by removing the "-xxd" suffix.
             #
@@ -3418,12 +3441,7 @@ Initialize8_Attributes() {
             for attribute in ${SCRIPT_ATTRIBUTES[$index]}; do
                 for field_name in "BYTE" "TEXT"; do
                     if [[ -n ${SCRIPT_STRINGS[${field_name}.map]} ]]; then
-                        #
-                        # Using bash's [:alnum:] character class is fine here - whatever
-                        # is matched will have to work as a key in SCRIPT_ANSI_ESCAPE and
-                        # that key was built by this script using ASCII characters.
-                        #
-                        if [[ $attribute =~ ^(${field_name}_)((BACKGROUND|FOREGROUND)[.][[:alnum:]-]+)$ ]]; then
+                        if [[ $attribute =~ ^(${field_name}_)((BACKGROUND|FOREGROUND)[.][a-zA-Z0-9-]+)$ ]]; then
                             attribute_name="${BASH_REMATCH[2]}"
                             escape_prefix=""
                             if [[ -n ${SCRIPT_ANSI_ESCAPE[$attribute_name]} ]]; then
@@ -3530,6 +3548,14 @@ Options() {
     #
     # if you want more information about option handling in bash scripts.
     #
+    # NOTE - the options that set prefixes, separators, and suffixes let the user
+    # supply strings that will appear in the dump we generate. That means checking
+    # those strings really should happen in the user's locale. Take a careful look
+    # any of those options and you'll see that the locale is switched in a subshell
+    # right before the regular expression examines the option's argument. Doing it
+    # that way means LC_ALL is reset when the subshell exits and we find out what
+    # the regular expression decided from the subshell's exit status.
+    #
     # NOTE - older implementations of this function relied on pattern matching in
     # the case statement, but it's not a technique that's available in languages,
     # like Java or C, that support switch statements. Splitting each command line
@@ -3548,23 +3574,6 @@ Options() {
     #
     # so the numeric values, stored as strings in the SCRIPT_STRINGS array, don't
     # need to be converted from octal or hex to decimal.
-    #
-    # TODO - use (and avoidance) of character classes in this function is kind of
-    # sloppy and probably should be revisited. It's currently safe to assume that
-    # the C locale is being used when this function is called and that's probably
-    # the way it will always be. Haven't found the time to clean things up, so I
-    # apologize for any confusion.
-    #
-    # Actually slowly working on this in combination with the Java implementation.
-    # Low level differences between Java and bash regular expressions can often be
-    # subtle. In my opinion the way bash regular expressions are affected by your
-    # locale and values assigned environment variables, like LC_ALL, complicates
-    # everything. For example, exactly what are you matching when you use ranges
-    # or character classes and when are they appropriate? If you explicitly set
-    # the locale to C or POSIX in a bash script what else are you affecting in
-    # yur script (e.g., quoting or counting of characters in a string might be
-    # affected). Anyway, I'm still working on the bash regular expressions in
-    # this script and I suspect I'm about 75% done...
     #
 
     argc="$#"
@@ -3595,7 +3604,7 @@ Options() {
         #
         case "$target" in
             --addr=)
-                if [[ $optarg =~ ^[$' \t']*(decimal|empty|hex|HEX|octal|xxd)[$' \t']*([:][$' \t']*([0]?[123456789][0123456789]*)[$' \t']*)?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*(decimal|empty|hex|HEX|octal|xxd)[$' \t']*([:][$' \t']*([0]?[1-9][0-9]*)[$' \t']*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     width="${BASH_REMATCH[3]}"
                     case "$style" in
@@ -3653,7 +3662,7 @@ Options() {
                 fi;;
 
             --byte=)
-                if [[ $optarg =~ ^[$' \t']*(binary|decimal|empty|hex|HEX|octal|xxd)[$' \t']*([:][$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*)?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*(binary|decimal|empty|hex|HEX|octal|xxd)[$' \t']*([:][$' \t']*([1-9][0-9]*|0[xX][0-9a-fA-F]+|0[0-7]*)[$' \t']*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     length="${BASH_REMATCH[3]}"
                     case "$style" in
@@ -3780,7 +3789,7 @@ Options() {
                 exit 0;;
 
             --length=)
-                if [[ $optarg =~ ^[$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([1-9][0-9]*|0[xX][0-9a-fA-F]+|0[0-7]*)[$' \t']*$ ]]; then
                     SCRIPT_STRINGS[DUMP.record.length]=$((BASH_REMATCH[1]))
                 else
                     Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
@@ -3794,7 +3803,7 @@ Options() {
                 SCRIPT_STRINGS[DUMP.layout]="NARROW";;
 
             --read=)
-                if [[ $optarg =~ ^[$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([1-9][0-9]*|0[xX][0-9a-fA-F]+|0[0-7]*)[$' \t']*$ ]]; then
                     SCRIPT_STRINGS[DUMP.input.read]=$((BASH_REMATCH[1]))
                 else
                     Error "argument $(Delimit "${optarg}") in option $(Delimit "${arg}") is not recognized"
@@ -3814,7 +3823,7 @@ Options() {
                 fi;;
 
             --start=)
-                if [[ $optarg =~ ^[$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*([:][$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*)?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*([1-9][0-9]*|0[xX][0-9a-fA-F]+|0[0-7]*)[$' \t']*([:][$' \t']*([1-9][0-9]*|0[xX][0-9a-fA-F]+|0[0-7]*)[$' \t']*)?$ ]]; then
                     SCRIPT_STRINGS[DUMP.input.start]="$((BASH_REMATCH[1]))"
                     SCRIPT_STRINGS[DUMP.output.start]="$((${BASH_REMATCH[3]:-BASH_REMATCH[1]}))"
                 else
@@ -3822,7 +3831,7 @@ Options() {
                 fi;;
 
             --text=)
-                if [[ $optarg =~ ^[$' \t']*(ascii|caret|empty|escape|unicode|xxd)[$' \t']*([:][$' \t']*([123456789][0123456789]*|0[xX][0123456789abcdefABCDEF]+|0[01234567]*)[$' \t']*)?$ ]]; then
+                if [[ $optarg =~ ^[$' \t']*(ascii|caret|empty|escape|unicode|xxd)[$' \t']*([:][$' \t']*([1-9][0-9]*|0[xX][0-9a-fA-F]+|0[0-7]*)[$' \t']*)?$ ]]; then
                     style="${BASH_REMATCH[1]}"
                     length="${BASH_REMATCH[3]}"
                     case "$style" in
