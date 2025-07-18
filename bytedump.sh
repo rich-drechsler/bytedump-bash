@@ -581,25 +581,29 @@
 # Finally, few words about the regular expressions used in this script. If you take
 # a close look at older versions you would be right to wonder exactly how I decided
 # to use character classes versus enumerating target characters or selecting them
-# using ranges. Even though the regular expressions all seemed to work, documenting
-# exactly how I decided to write them was impossible. I knew they needed attention,
-# but fiddling around with working regular expressions can be painful and it really
-# wasn't something I wanted to tackle.
+# using ranges. The regular expressions all seemed to work, but their inconsistency
+# was ugly and difficult to explain. They needed attention, but messing around with
+# lots of working regular expressions would be painful and wasn't something I wanted
+# to tackle without a plan.
 #
 # That changed after I started work on a Java version of this bash script. My goal
-# was to end up with a Java version that resembled the bytedump bash script closely
+# was to end up with a Java program that resembled the bytedump bash script closely
 # enough that understanding one implementation would be useful if you decide to dig
 # into the other. Whether I succeeded or not isn't my call, but the goal eventually
-# did force me to settle on the following regular expression "rules":
+# did force me to settle on the following regular expression "rules" that I could
+# apply to both versions:
 #
 #   Character Classes
 #     Don't use them in the C locale and otherwise avoid them except to validate
 #     strings set by command line options that are supposed to appear, as is, in
-#     the dump we produce.
+#     the dump we produce. Options, like --addr-prefix or --byte-separator, are
+#     examples where a character class is appropriate, but it only happens after
+#     we switch out of the C locale (by changing LC_ALL).
 #
-#     Command line options, like --addr-prefix or --byte-separator, are examples
-#     that have arguments that are validated using a character class, but only
-#     after we use LC_ALL to switch out of the C locale.
+#     Restricing the use of character classes in this bash script was a choice I
+#     made primarily because alternatives (i.e., using character ranges in the C
+#     locale) seemed like a better way to sync bash and Java regular expressions
+#     in the two implementations of the bytedump program.
 #
 #   Character Ranges
 #     Use them in the C locale in place of character classes or enumerated lists
@@ -608,6 +612,10 @@
 #     Avoid ranges and instead list the characters that a bracket expression is
 #     supposed to match whenever the regular expression might not be executed in
 #     the C locale.
+#
+# The rules, as written, are for this bash script. Java regular expressions don't
+# depend on locales, but instead flags that are used when regular expressions are
+# compiled provide the required control.
 #
 
 ##############################
@@ -1795,8 +1803,11 @@ ByteSelector() {
                         # POSIX character class names - these hex mappings were all generated
                         # by the Java version of this bash script. Use bash regular expressions
                         # to build the mappings and you'll probably notice small differences in
-                        # a few character classes (e.g., [:space:] or [:punct:]). I decided to
-                        # go with Java's choices.
+                        # a few character classes (e.g., [:space:] or [:punct:]).
+                        #
+                        # NOTE - I've included "debugging" code in the Java version of bytedump
+                        # that generates these byte lists, so you can see exactly how they were
+                        # built.
                         #
                          "alnum") ByteSelector "$selector_attribute" "0x(30-39 41-5A 61-7A AA B5 BA C0-D6 D8-F6 F8-FF)" "$selector_output_name";;
                          "alpha") ByteSelector "$selector_attribute" "0x(41-5A 61-7A AA B5 BA C0-D6 D8-F6 F8-FF)" "$selector_output_name";;
@@ -3551,7 +3562,7 @@ Options() {
     # NOTE - the options that set prefixes, separators, and suffixes let the user
     # supply strings that will appear in the dump we generate. That means checking
     # those strings really should happen in the user's locale. Take a careful look
-    # any of those options and you'll see that the locale is switched in a subshell
+    # at any of those options and you'll see the locale is switched in a subshell
     # right before the regular expression examines the option's argument. Doing it
     # that way means LC_ALL is reset when the subshell exits and we find out what
     # the regular expression decided from the subshell's exit status.
