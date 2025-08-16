@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2024-2025 Richard L. Drechsler
+# Copyright (C) 2024-2025 Richard L. Drechsler (https://github.com/rich-drechsler/bytedump)
 # License: MIT License (https://opensource.org/license/mit/)
 #
 # This is a nontrivial program that tackles things that simply don't belong in a
